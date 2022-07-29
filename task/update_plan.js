@@ -66,7 +66,7 @@ function updateNetworkPlan(ns) {
 
 			continue
 		}
-
+ 
 		// Prepare specific pipeline for this host.
 		if (!plan.network.get('Harvester').has(key))
 			plan.network.get('Harvester').appendEntry(new Pipeline('Sync', [], key))
@@ -196,8 +196,8 @@ function updateNetworkPlan(ns) {
 }
 
 function planFlags(totalRAM) {
-	if (cc.flags.Charge) {
-		let chargeRAM = totalRAM * cc.flags.ChargeAmount
+	if (cc.flags.get('Charge') > 0) {
+		let chargeRAM = totalRAM * cc.flags.get('Charge')
 		totalRAM -= chargeRAM
 
 		if (!plan.network.has('Charge'))
@@ -223,8 +223,8 @@ function planFlags(totalRAM) {
 				.appendEntry(new Pipeline('Async', tasks, `Batch@${Date.now()}`))
 		}
 	}
-	if (cc.flags.Share) {
-		let shareRAM = totalRAM * cc.flags.ShareAmount
+	if (cc.flags.get('Share') > 0) {
+		let shareRAM = totalRAM * cc.flags.get('Share')
 		totalRAM -= shareRAM
 
 		if (!plan.network.has('Share')) plan.network.appendEntry(new Pipeline('Sync', [], 'Share'))

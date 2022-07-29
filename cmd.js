@@ -6,25 +6,26 @@ import {
 	formatNodeMap
 } from 'core/format'
 import { Network, HostMap, Fragments, CC, Tracker, Plan } from 'state/index'
+import { Flags } from 'core/flags'
 import { OWN_SERVER_PREFIX, WORKER_SCRIPTS, MIN_WORKER_RAM } from 'core/globals'
 import { graphify } from 'core/util'
 
-const ACTIONS = [
-	'clean',
-	'addserver',
-	'rmserver',
-	'inspect',
-	'info',
-	'backdoors',
-	'plan',
-	'memory',
-	'tracker',
-	'hostmap',
-	'env',
-	'pattern',
-	'contract',
-	'ramlist'
-]
+const ACTIONS = new Flags([
+	['clean', false, ['Wipe state, meaning delete all entries to Electron\'s local storage.'].join('\n')],
+	['addserver', false, ['Add a new server with the given GB count. Only use powers of 2, eg. 2, 4, 8, 16...'].join('\n')],
+	['rmserver', false, ['Delete a existing private server by hostname.'].join('\n')],
+	['inspect', false, ['Show detailed information about a host.'].join('\n')],
+	['info', false, ['Environment information.'].join('\n')],
+	['backdoors', false, ['List all vulnerable servers without backdoors.'].join('\n')],
+	['plan', false, ['Print the current network queue. Use second parameter \'i\' for detailed view.'].join('\n')],
+	['memory', false, ['Print current memory consumption.'].join('\n')],
+	['tracker', false, ['Show script and hnet stats since last nuke.'].join('\n')],
+	['hostmap', false, ['Print all hosts and their connections as hierarchical graph.'].join('\n')],
+	['env', false, ['More environment information.'].join('\n')],
+	['pattern', false, ['Load a Stanek\'s Gift pattern from /data/patterns or export the current one.'].join('\n')],
+	['contract', false, ['Show information about contract file. Give file- and hostname as parameters.'].join('\n')],
+	['ramlist', false, ['Show scripts files with ram use on given host.'].join('\n')],
+])
 const ACTIONS_TRACKER = [
 	'scripts',
 	'hacknet'
@@ -36,11 +37,18 @@ export function autocomplete(data, args) {
 	else if (args.length == 3 && args[0] == "pattern" && args[1] == "in") { return [...data.txts] }
 	else if (args.length > 1 && args[0] != 'tracker') return [...data.servers]
 	else if (args[0] == 'tracker') return [...ACTIONS_TRACKER]
-	else if (args.length == 1) return [...ACTIONS]
+	else if (args.length == 1) return [...ACTIONS.keys()]
 }
 
 /** @param {NS} ns **/
 export async function main(ns) {
+	ACTIONS.parse(ns)
+
+	if ( ns.args.includes('help') ) {
+		ns.tprint(ACTIONS.help())
+		ns.exit()
+	}
+
 	let hostMap = HostMap.load(),
 		network = Network.load(),
 		fragments = Fragments.load(),
@@ -380,11 +388,11 @@ ${tPrint}
 				pPrint += `+ [${jID}] @ ${ns.nFormat(threads, '000a')} thread(s)\n`
 			}
 
-			let cFlags = cc.flags.HackAll ? ' --HACK-ALL' : ''
-			cFlags += cc.flags.RunOnce ? ' --ONCE' : ''
-			cFlags += cc.flags.NoHnet ? '--NO-HNET ' : ''
-			cFlags += cc.flags.Share ? ' --SHARE ' + cc.flags.ShareAmount : ''
-			cFlags += cc.flags.Charge ? ' --CHARGE ' + cc.flags.ChargeAmount : ''
+			let cFlags = cc.flags.get('HackAll') ? ' --HACK-ALL' : ''
+			cFlags += cc.flags.get('RunOnce') ? ' --ONCE' : ''
+			cFlags += cc.flags.get('NoHnet') ? '--NO-HNET ' : ''
+			cFlags += cc.flags.get('Share') > 0 ? ' --SHARE ' + cc.flags.get('Share') : ''
+			cFlags += cc.flags.get('Charge') > 0? ' --CHARGE ' + cc.flags.get('Charg') : ''
 
 			var out =
 				`

@@ -19,18 +19,18 @@ export async function main(ns) {
 	// Solve contracts in database
 	let contractsSolved = await asyncRun(ns, 'task/solve_contracts.js')
 
-	!cc.flags.Silent && ns.toast(
+	!cc.flags.get('Silent') && ns.toast(
 		`[CC@${cc.host}] Solving contracts...`,
 		contractsSolved ? 'info' : 'error',
 		10 * 1000
 	)
 
 	// Are we doing HNET?
-	if (!cc.flags.NoHnet) {
+	if (!cc.flags.get('NoHnet')) {
 		let hnetUpgrade = await asyncRun(ns, 'task/upgrade_hnet.js')
 
 		// Process HNET upgrade
-		!cc.flags.Silent && ns.toast(
+		!cc.flags.get('Silent') && ns.toast(
 			`[CC@${cc.host}] HNET upgrade...`,
 			hnetUpgrade ? 'info' : 'error',
 			10 * 1000

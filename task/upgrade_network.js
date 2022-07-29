@@ -51,7 +51,7 @@ function upgradeNetwork(ns, corpus) {
 		let oldGB = cc.nodeStep
 		for (var a = 0; a < nodeStepRaiseCounter; a++) oldGB /= 2
 
-		!cc.flags.Silent && ns.toast(
+		!cc.flags.get('Silent') && ns.toast(
 			`[CC@${cc.host}] Raising node step ${formatMoney(oldGB)} -> ${formatMoney(cc.nodeStep)} GB`,
 			'info',
 			10 * 1000
@@ -81,7 +81,7 @@ function upgradeNetwork(ns, corpus) {
 			network.nodes.push(res)
 
 			// Notify user
-			!cc.flags.Silent && ns.toast(
+			!cc.flags.get('Silent') && ns.toast(
 				`[CC@${cc.host}] Adding ${formatMoney(cc.nodeStep)} GB computing power: ${res}`,
 				'info',
 				10 * 1000
@@ -128,7 +128,7 @@ function upgradeNetwork(ns, corpus) {
 		// Delete outdated node
 		const hasDeleted = ns.deleteServer(nodes[upgradeTarget])
 
-		!cc.flags.Silent && ns.toast(
+		!cc.flags.get('Silent') && ns.toast(
 			`[CC@${cc.host}] Removing outdated node {${nodes[upgradeTarget]}}`,
 			hasDeleted ? 'success' : 'error',
 			6 * 1000

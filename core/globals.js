@@ -1,6 +1,7 @@
 /////////////////////////////
 ///////// 	DEBUG		/////////
 /////////////////////////////
+export const DEBUG_TICK = false
 export const DEBUG_RUN = false
 export const DEBUG_DISPATCH = false
 

@@ -18,7 +18,7 @@ function upgradePrograms(ns, corpus) {
 		if (!ns.getPlayer().tor && corpus >= 200 * 1000) {
 
 			// Notify user
-			!cc.flags.Silent && ns.toast(
+			!cc.flags.get('Silent') && ns.toast(
 				`[CC@${cc.host}] Buying TOR modem...`,
 				ns.purchaseTor() ? 'info' : 'error',
 				10 * 1000
@@ -36,7 +36,7 @@ function upgradePrograms(ns, corpus) {
 			) {
 
 				// Buy and notify user
-				!cc.flags.Silent && ns.toast(
+				!cc.flags.get('Silent') && ns.toast(
 					`[CC@${cc.host}] Purchasing program '${prog[0]}'...`,
 					ns.purchaseProgram(prog[0]) ? 'success' : 'error',
 					10 * 1000

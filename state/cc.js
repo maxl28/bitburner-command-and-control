@@ -1,19 +1,7 @@
 import { OWN_SERVER_START_GB } from 'core/globals'
 import { StorageEntry } from 'core/storage-entry'
-import { isNumeric } from 'core/util'
+import { Flags } from 'core/flags'
 
-export const DefaultFlags = {
-	Silent: false,
-	RunOnce: false,
-	HackAll: false,
-	KillAll: false,
-	Share: false,
-	Charge: false,
-	NoHnet: false,
-	DebugTick: false,
-	ShareAmount: 0,
-	ChargeAmount: 0
-}
 export class CC extends StorageEntry {
 	static storageKey = 'State.CC'
 	static storageValue = CC
@@ -43,78 +31,75 @@ export class CC extends StorageEntry {
 	/**
 	 * cc.js process flags
 	 */
-	flags = DefaultFlags
+	 flags = new Flags([
+		[
+			'silent', 
+			false, 
+			[
+				'Hide any and all annoying ns.toast messages. Usefull if you left the game on',
+				'idle for a few days.',
+				'Also prevents the game from freezing or crashing from notification spam.'
+			].join('\n')
+		],
+		[
+			'run-once', 
+			false,
+			[
+				'Only run CC for one tick and then shut down.'
+			].join('\n')
+		],
+		[
+			'hack-all',
+			false,
+			[
+				'Overwrite semi intelligent plan creation and simply try to hack all feasable hosts.'
+			].join('\n')
+		],
+		[
+			'kill-all', 
+			false,
+			[
+				'Kill any leftover running worker skipts. Usefull in combination the run-once flag.'
+			].join('\n')
+		],
+		[
+			'no-hnet',
+			false,
+			[
+				'Disable automatic Hacknet upgrades every big tick (see globals.js).'
+			].join('\n')
+		],
+		[
+			'share',
+			0.0,
+			[
+				'Configure how much of your total avaiable RAM should be dedicated to sharing.',
+				'Use a percentage value between 0 and 1, eg. .35.'
+			].join('\n')
+		],
+		[
+			'charge',
+			0.0,
+			[
+				'Configure how much of your total avaiable RAM should be dedicated to charging',
+				'any available Stanek\'s Fragments, only available after SourceFile-11.',
+				'Use a percentage value between 0 and 1, eg. .35.'
+			].join('\n')
+		],
+	])
 
 	constructor() {
 		super()
 	}
 
 	parseFlags(ns) {
+
 		// Reset instance flags
-		this.flags = DefaultFlags
+		this.flags.parse(ns)
+		
+		if ( ns.args.includes('help')) {
+			ns.tprint('\n--- HELP ---\n\n' + this.flags.help())
 
-		for (var f = 0; f < ns.args.length; f++) {
-			switch (ns.args[f]) {
-				case 'once':
-					this.flags.RunOnce = true
-					break
-
-				case 'hackall':
-					this.flags.HackAll = true
-					break
-
-				case 'killall':
-						this.flags.KillAll = true
-						break
-
-				case 'nohnet':
-					this.flags.NoHnet = true
-					break
-
-				case 'silent':
-					this.flags.Silent = true
-					break
-				
-				case 'debugtick':
-						this.flags.DebugTick = true
-						break
-
-				case 'share':
-					this.flags.Share = true
-					this.flags.ShareAmount = ns.args[f + 1]
-					f++
-					break
-
-				case 'charge':
-					this.flags.Charge = true
-					this.flags.ChargeAmount = ns.args[f + 1]
-					f++
-					break
-
-				default:
-					ns.tprint('Unrecognized flag: ' + ns.args[f])
-					ns.exit()
-					break
-			}
-		}
-
-		// Parse CLI Flags
-		if (
-			(this.flags.Share &&
-				(!this.flags.ShareAmount || !isNumeric(this.flags.ShareAmount))) ||
-			(this.flags.Charge &&
-				(!this.flags.ChargeAmount || !isNumeric(this.flags.ChargeAmount)))
-		) {
-			ns.tprint('Error: flag requires an additional argument.')
-			ns.exit()
-		}
-		if (
-			(this.flags.Share &&
-				(this.flags.ShareAmount > 1 || this.flags.ShareAmount < 0)) ||
-			(this.flags.Charge &&
-				(this.flags.ChargeAmount > 1 || this.flags.ChargeAmount < 0))
-		) {
-			ns.tprint('Error: flag argument needs to be between 0 and 1.')
 			ns.exit()
 		}
 	}

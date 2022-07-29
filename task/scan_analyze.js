@@ -124,7 +124,7 @@ function tryTakeServer(ns, host) {
 	) {
 		// Try to take server
 		if (takeServer(ns, host)) {
-			!cc.flags.Silent && ns.toast(`[CC@${cc.host}] Took over '{${host}}'`, 'info', 10 * 1000)
+			!cc.flags.get('Silent') && ns.toast(`[CC@${cc.host}] Took over '{${host}}'`, 'info', 10 * 1000)
 		}
 	}
 }

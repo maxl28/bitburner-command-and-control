@@ -8,7 +8,7 @@ export async function main(ns) {
   let cc = CC.load(),
     network = Network.load()
 
-  if ( !cc.flags.KillAll ) return
+  if ( !cc.flags.get('KillAll') ) return
 
   do {
 
@@ -24,7 +24,7 @@ export async function main(ns) {
     network = Network.load()
   }  while ( network.taken.size > 0 )
 
-  cc.flags.KillAll = false
+  cc.flags.get('KillAll') = false
 
   CC.save(cc)
   Network.save(network)

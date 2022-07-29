@@ -8,7 +8,7 @@ export async function main(ns) {
 
 		// See if server was bought
 		if (res.length > 0) {
-			!cc.flags.Silent && ns.toast(
+			!cc.flags.get('Silent') && ns.toast(
 				`Purchasing server '${res}' with ${ram} for ${ns.nFormat(
 					ns.getPurchasedServerCost(ram),
 					'$0.000a'
@@ -17,7 +17,7 @@ export async function main(ns) {
 				4000
 			)
 		} else {
-			!cc.flags.Silent && ns.toast(
+			!cc.flags.get('Silent') && ns.toast(
 				`Failed to purchase server, not enought money: ${ns.nFormat(
 					ns.getPurchasedServerCost(ram),
 					'$0.000a'

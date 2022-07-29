@@ -64,7 +64,7 @@ export async function main(ns) {
 				ns.print(`Hacknet node ${i} is maxed out!`)
 
 				if (nodeChanged)
-				!cc.flags.Silent && ns.toast(`[Hnet] Node ${i} maxed out!`, 'warning', 10 * 1000)
+				!cc.flags.get('Silent') && ns.toast(`[Hnet] Node ${i} maxed out!`, 'warning', 10 * 1000)
 
 				maxedCount++
 				continue
@@ -91,7 +91,7 @@ export async function main(ns) {
 				if (newNode > -1) {
           budget -= nodeCost
           nodeChanged = true
-					!cc.flags.Silent && ns.toast(
+					!cc.flags.get('Silent') && ns.toast(
 						`[Hnet] Added node 'hacknet-node-${newNode}' @ ${ns.nFormat(nodeCost, '$ 000a')}!`,
 						'warning',
 						10 * 1000
