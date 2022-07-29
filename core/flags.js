@@ -15,11 +15,13 @@ export class Flags {
   parse(ns) {
     const flagNames = this.__flagData.map(v => v[0])
     const flagPropNames = this.__flagData.map(v => {
-      v[0].split('-').map(part => part[0].toUpperCase() + part.slice(1))
+      return v[0].split('-').map(part => {
+        return part[0].toUpperCase() + part.slice(1)
+      } ).join('')
     })
     
     for( let i = 0; i < flagNames.length-1; i++ ) {
-      let index = ns.args.indexOf[ flagNames[i] ]
+      const index = ns.args.lastIndexOf( flagNames[i] )
 
       let prop = this.__flagData[i][1]
       if ( index > -1 ) {
@@ -27,7 +29,7 @@ export class Flags {
           prop = true
         } else {
           if ( ns.args.length > index+1 ) {
-            prop = prop.constructor( ns.args[index+1] )
+            prop = parseInt( ns.args[index+1] )
           } else {
             ns.tprint(`Error: flag '${flagNames[i]}' requires an additional argument!`)
             ns.exit()

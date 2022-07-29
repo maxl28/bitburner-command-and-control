@@ -165,4 +165,15 @@ export class CC extends StorageEntry {
 
 		return 0
 	}
+
+	static load() {
+		let cc = super.load()
+
+		let fd = cc.flags
+		
+		cc.flags = new Flags(fd.__flagData)
+		cc.flags.__props = fd.__props
+
+		return cc
+	}
 }

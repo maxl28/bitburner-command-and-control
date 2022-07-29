@@ -7,11 +7,7 @@ export class StorageEntry {
 	static storageValue		= StorageEntry
 
 	static load() {
-		try {
-			return fetchOrCreateObject(this.storageKey, this.storageValue)
-		} catch (e) {
-			ns.tprint('ERROR: failed to load StorageObject by key -> ', this.storageKey)
-		}
+		return fetchOrCreateObject(this.storageKey, this.storageValue)
 	}
 
 	static save(data = this) {
