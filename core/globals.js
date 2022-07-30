@@ -15,8 +15,8 @@ export const MAX_SCRIPT_RUNTIME = 4 * 1000
 export const CC_CYCLE_PAUSE = .075 * 1000
 export const CC_BIG_TICK_COUNT = 300
 export const CC_PLAN_UPDATE_TICK_COUNT = 2
-export const WORKER_SCRIPTS = ['w_share.js', 'w_hack.js', 'w_grow.js', 'w_weaken.js', 'w_charge.js']
-export const KILL_SCRIPTS = ['w_share.js', 'w_charge.js']
+export const WORKER_SCRIPTS = ['/worker/share.js', '/worker/hack.js', '/worker/grow.js', '/worker/weaken.js', '/worker/charge.js']
+export const KILL_SCRIPTS = ['/worker/share.js', '/worker/charge.js']
 export const GAME_PROGRAMS = [
 	['BruteSSH.exe', .5 * 1000000],
 	['FTPCrack.exe', 1.5 * 1000000],

@@ -138,7 +138,7 @@ function updateNetworkPlan(ns) {
 					hostMap.servers[target].hackDifficulty > hostMap.servers[target].minDifficulty
 					? splitTaskByMultiplier(
 							weakenMul,
-							'w_weaken.js',
+							'/worker/weaken.js',
 							chunkThreads,
 							target
 					  )
@@ -146,8 +146,8 @@ function updateNetworkPlan(ns) {
 				// Grow server if too little available money.
 				...(targetVolume <= FARM_MAX_VOLUME
 					? [
-							...splitTaskByMultiplier(growMul, 'w_grow.js', chunkThreads / 2, target),
-							...splitTaskByMultiplier(weakenMul, 'w_weaken.js', chunkThreads / 2, target)
+							...splitTaskByMultiplier(growMul, '/worker/grow.js', chunkThreads / 2, target),
+							...splitTaskByMultiplier(weakenMul, '/worker/weaken.js', chunkThreads / 2, target)
 						]: []),
 				// In any case, try to get some money!
 				...(hackChance > FARM_THRESHOLD_HACK_CHANCE &&
@@ -155,19 +155,19 @@ function updateNetworkPlan(ns) {
 					? [
 							...splitTaskByMultiplier(
 								(1 + (1- hackChance)),
-								'w_hack.js',
+								'/worker/hack.js',
 								hHackThreads,
 								target
 							),
 							...splitTaskByMultiplier(
 								hackChance * growMul,
-								'w_grow.js',
+								'/worker/grow.js',
 								hGrowThreads,
 								target
 							),
 							...splitTaskByMultiplier(
 								hackChance * weakenMul,
-								'w_weaken.js',
+								'/worker/weaken.js',
 								hWeakenThreads,
 								target
 							),
@@ -210,8 +210,8 @@ function planFlags(totalRAM) {
 
 				tasks.push(
 					new Task(
-						'w_charge.js',
-						cc.scripts.get('w_charge.js'),
+						'/worker/charge.js',
+						cc.scripts.get('/worker/charge.js'),
 						10 * Math.floor(chargeRAM / 1.7 / fragments.used.length),
 						[[frag.x, frag.y].join(',')]
 					)
@@ -232,7 +232,7 @@ function planFlags(totalRAM) {
 			plan
 				.get('Share')
 				.appendEntry(
-					new Task('w_share.js', cc.scripts.get('w_share.js'), 30 * Math.floor(shareRAM / 1.7), [])
+					new Task('/worker/share.js', cc.scripts.get('/worker/share.js'), 30 * Math.floor(shareRAM / 1.7), [])
 				)
 		}
 	}

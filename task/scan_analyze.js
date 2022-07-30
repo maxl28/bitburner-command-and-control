@@ -67,7 +67,7 @@ export async function analyzeScan(ns) {
 				// Is this a worker?
 				if (WORKER_SCRIPTS.includes(proc.filename)) {
 					// Extract cmd string
-					var cmd = proc.filename.slice(2, -3)
+					var cmd = proc.filename.slice(8, -3)
 					if (cmd != 'share') cmd += ' ' + proc.args[1]
 
 					const cost =

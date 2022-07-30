@@ -114,7 +114,7 @@ export async function main(ns) {
 
 			let runningCMDs = new Map()
 			ns.ps(name).forEach((proc) => {
-				let cmd = proc.filename.slice(2, -3)
+				let cmd = proc.filename.slice(8, -3)
 
 				if (WORKER_SCRIPTS.includes(proc.filename)) {
 					if (proc.args.length > 1) cmd += ' ' + proc.args[1]
@@ -187,7 +187,7 @@ export async function main(ns) {
 					let runtime = runningCMDs.get(cmd)[0],
 							cmdYield = runningCMDs.get(cmd)[1],
 							threads = runningCMDs.get(cmd)[2],
-							cmdRam = ns.getScriptRam(`w_${cmd.split(' ')[0]}.js`, name)
+							cmdRam = ns.getScriptRam(`worker/${cmd.split(' ')[0]}.js`, name)
 
 
 					tPrint += `+ '${cmd}' @ ${threads * cmdRam} GB yields ${cmdYield}\n`
@@ -271,7 +271,7 @@ ${tPrint}
 							jobMap.set(jID, jobMap.get(jID) + proc.threads)
 						}
 
-						cmd = proc.filename.slice(2, -3)
+						cmd = proc.filename.slice(8, -3)
 						if (proc.args.length > 1) cmd += ' ' + proc.args[1]
 
 						totalThreads += proc.threads
@@ -486,7 +486,7 @@ Fragments
 				ns.ps(host).forEach( proc => {
 					if (
 						proc.args.length >= 3 &&
-						['w_hack.js', 'w_grow.js', 'w_weaken.js'].includes(proc.filename)
+						['/worker/hack.js', '/worker/grow.js', '/worker/weaken.js'].includes(proc.filename)
 					) {
 						let key = proc.filename.substring(2, proc.filename.length - 3),
 							target = proc.args[1]

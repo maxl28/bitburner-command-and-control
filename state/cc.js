@@ -144,7 +144,7 @@ export class CC extends StorageEntry {
 			if (cost > this.buffer) this.buffer = cost
 		})
 
-		ns.ls(this.host, 'w_').forEach((file) => {
+		ns.ls(this.host, '/worker/').forEach((file) => {
 			const cost = ns.getScriptRam(file, this.host)
 
 			this.scripts.set( file, cost )
