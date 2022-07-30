@@ -147,8 +147,8 @@ async function stateTick(ns, tick = 0) {
 	// SourceFile-1 Stanek's Gift
 	if (cc.sourceFileLvl(1) > 0) await asyncRun(ns, 'task/update_fragments.js')
 
-	// SourceFile-6 Bladeburner
-	if (cc.sourceFileLvl(6) > 0) await asyncRun(ns, 'task/update_bladeburner.js')
+	// SourceFile-7 Bladeburners 2079
+	if (cc.sourceFileLvl(7) > 0) await asyncRun(ns, 'task/update_bladeburner.js')
 
 	dbgUp && perf.mark('stateTick.PlanUpdate')
 	// Formulate strategy for current state

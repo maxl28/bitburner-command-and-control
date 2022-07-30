@@ -29,6 +29,11 @@ export class CC extends StorageEntry {
 	scripts = new Map()
 
 	/**
+	 * Save current intel from ns.getPlayer().
+	 */
+	player = {}
+
+	/**
 	 * cc.js process flags
 	 */
 	 flags = new Flags([
@@ -162,6 +167,8 @@ export class CC extends StorageEntry {
 
 			if (file.n == num) return file.lvl
 		}
+
+		if ( this.player.bitNodeN == num ) return 1
 
 		return 0
 	}
