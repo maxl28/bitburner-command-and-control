@@ -24,6 +24,24 @@ export const GAME_PROGRAMS = [
 	['HTTPWorm.exe', 30 * 1000000],
 	['SQLInject.exe', 250 * 1000000]
 ]
+export const GAME_FRAGMENTS = {
+	0: '+x% acking Skill',
+	1: '+x% acking Skill',
+	5: 'Faster hack(), grow(), and weaken()',
+	6: '+x% hack() power',
+	7: '+x% grow() power',
+	10: '+x% strength skill',
+	12: '+x% defense skill',
+	14: '+x% dexterity skill',
+	16: '+x% agility skill',
+	18: '+x% charisma skill',
+	20: '+x% hacknet production',
+	21: '-x% cheaper hacknet cost',
+	25: '+x% reputation from factions and companies',
+	27: '+x% work money',
+	28: '+x% crime money',
+	30: '+x% all bladeburner stats',
+}
 
 
 

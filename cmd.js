@@ -7,7 +7,7 @@ import {
 } from 'core/format'
 import { Network, HostMap, Fragments, CC, Tracker, Plan } from 'state/index'
 import { Flags } from 'core/flags'
-import { OWN_SERVER_PREFIX, WORKER_SCRIPTS, MIN_WORKER_RAM } from 'core/globals'
+import { OWN_SERVER_PREFIX, WORKER_SCRIPTS, MIN_WORKER_RAM, GAME_FRAGMENTS } from 'core/globals'
 import { graphify } from 'core/util'
 
 const ACTIONS = new Flags([
@@ -413,6 +413,14 @@ Economy
 
 Fragments
 + Slots		: [${fragments.used.join('] [')}]
+${fragments.used.map(root => {
+	let frag = ns.stanek.getFragment(root[0], root[1])
+
+	// Skip booster frags
+	if ( frag.id >= 100 ) return ''
+
+	return '--- ' + GAME_FRAGMENTS[frag.id] + ' @ ' + ns.nFormat(frag.numCharge, '0.000a')
+}).filter(v => v.length > 0).join('\n')}
 ` +
 				/*
 				
