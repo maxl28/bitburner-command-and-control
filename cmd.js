@@ -496,7 +496,7 @@ ${fragments.used.map(root => {
 						proc.args.length >= 3 &&
 						['/worker/hack.js', '/worker/grow.js', '/worker/weaken.js'].includes(proc.filename)
 					) {
-						let key = proc.filename.substring(2, proc.filename.length - 3),
+						let key = proc.filename.substring(8, proc.filename.length - 3),
 							target = proc.args[1]
 						
 						if (!taskMap.has(target) ) taskMap.set(target, new Map())
@@ -508,7 +508,7 @@ ${fragments.used.map(root => {
 
 			let taskPrint = ''
 			for( let tTarget of Array.from(taskMap.keys()) ) {
-				taskPrint += ` * ${tTarget}\n`
+				taskPrint += ` + ${tTarget}\n`
 
 				for( let task of Array.from(taskMap.get(tTarget).keys())) {
 					taskPrint += ` ---> ${task} @ ${taskMap.get(tTarget).get(task)} thread(s)\n`
@@ -522,8 +522,8 @@ ${taskPrint}
 ------------`)
 			} else {
 				ns.alert(`--- PLAN ---
-
-${formatPipe(plan, '', taskMap)}`)
+[Network]
+${formatPipe(plan.network, '', taskMap)}`)
 			}
 			break
 
@@ -532,8 +532,8 @@ ${formatPipe(plan, '', taskMap)}`)
 
 			for (let [root, frag] of fragments.state) {
 				tPrint += `+ [X.${frag.x}, Y.${frag.y}, R.${frag.rotation}]\n`
+				tPrint += `--- Desc: ${frag.id < 100 ? GAME_FRAGMENTS[frag.id] : 'Booster'}\n`
 				tPrint += `--- Chrg: ${frag.numCharge}\n`
-				tPrint += `--- Avg : ${frag.avgCharge}\n`
 			}
 
 			ns.tprint(`
