@@ -20,7 +20,7 @@ export class Flags {
       } ).join('')
     })
     
-    for( let i = 0; i < flagNames.length-1; i++ ) {
+    for( let i = 0; i < flagNames.length; i++ ) {
       const index = ns.args.lastIndexOf( flagNames[i] )
 
       let prop = this.__flagData[i][1]
@@ -29,7 +29,7 @@ export class Flags {
           prop = true
         } else {
           if ( ns.args.length > index+1 ) {
-            prop = parseInt( ns.args[index+1] )
+            prop = Number( ns.args[index+1] )
           } else {
             ns.tprint(`Error: flag '${flagNames[i]}' requires an additional argument!`)
             ns.exit()
