@@ -1,4 +1,4 @@
-# bitburner-command-and-controll
+# CnC Script for BitBurner
 
 This is my little collection of scripts for grinding Bitburner.
 
