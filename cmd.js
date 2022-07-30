@@ -343,8 +343,8 @@ ${tPrint}
 						ns.getServerMoneyAvailable(target) /
 						(ns.getServerMaxMoney(target) / 100)
 					var tPercent = 0
-					if (network.plan.network.has(cmd)) {
-						tPercent = network.state.get(cmd) / (network.plan.network.get(cmd) / 100)
+					if (networkMap.has(cmd)) {
+						tPercent = network.state.get(cmd) / (networkMap.get(cmd) / 100)
 					}
 
 					var pTime = 0
@@ -377,7 +377,7 @@ ${tPrint}
 						ns.hackAnalyzeChance(target) * 100
 					).toFixed(3)}% \n`
 					tPrint += `---- Gain   : ${ns.nFormat(
-						Math.floor(gainMap.get(cmd)),
+						Math.floor(0+gainMap.get(cmd)),
 						'$ 0.000a'
 					)} / sec \n`
 				}
@@ -392,7 +392,7 @@ ${tPrint}
 			cFlags += cc.flags.get('RunOnce') ? ' --ONCE' : ''
 			cFlags += cc.flags.get('NoHnet') ? '--NO-HNET ' : ''
 			cFlags += cc.flags.get('Share') > 0 ? ' --SHARE ' + cc.flags.get('Share') : ''
-			cFlags += cc.flags.get('Charge') > 0? ' --CHARGE ' + cc.flags.get('Charg') : ''
+			cFlags += cc.flags.get('Charge') > 0? ' --CHARGE ' + cc.flags.get('Charge') : ''
 
 			var out =
 				`
