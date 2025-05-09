@@ -27,6 +27,8 @@ export class Flags {
       if ( index > -1 ) {
         if ( typeof prop === 'boolean' ) {
           prop = true
+        } else if ( typeof prop == 'string' ) {
+          prop = ns.args[index+1]
         } else {
           if ( ns.args.length > index+1 ) {
             prop = Number( ns.args[index+1] )

@@ -91,6 +91,15 @@ export class CC extends StorageEntry {
 				'Use a percentage value between 0 and 1, eg. .35.'
 			].join('\n')
 		],
+		[
+			'sf',
+			'',
+			[
+				'A comma seperated list of source file numbers owned. Unfortunately, the original ',
+				'data endpoint was removed from the game\'s API.',
+				'Example: 1,5,13'
+			]
+		]
 	])
 
 	constructor() {
@@ -162,10 +171,12 @@ export class CC extends StorageEntry {
 		}
 	}
 
+	// Todo: Will always return lvl 1 if source-file is present, 0 otherwise.
+	// 				Find a way to recover the 'real' source-file value.
 	sourceFileLvl(num) {
-		for ( let file of this.sourceFiles ) {
+		for ( let file of this.flags.get('Sf').split(',') ) {
 
-			if (file.n == num) return file.lvl
+			if (parseInt(file) == num) return 1
 		}
 
 		if ( this.player.bitNodeN == num ) return 1
