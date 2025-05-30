@@ -8,7 +8,7 @@ import {
 import { Network, HostMap, Fragments, CC, Tracker, Plan } from 'state/index'
 import { Flags } from 'core/flags'
 import { OWN_SERVER_PREFIX, WORKER_SCRIPTS, MIN_WORKER_RAM, GAME_FRAGMENTS } from 'core/globals'
-import { graphify } from 'core/util'
+import { graphify, millisToHuman } from 'core/util'
 
 const ACTIONS = new Flags([
 	['clean', false, ['Wipe state, meaning delete all entries to Electron\'s local storage.'].join('\n')],
@@ -25,6 +25,7 @@ const ACTIONS = new Flags([
 	['pattern', false, ['Load a Stanek\'s Gift pattern from /data/patterns or export the current one.'].join('\n')],
 	['contract', false, ['Show information about contract file. Give file- and hostname as parameters.'].join('\n')],
 	['ramlist', false, ['Show scripts files with ram use on given host.'].join('\n')],
+	['traceroute', false, ['Trace a path to a host.'].join('\n')],
 ])
 const ACTIONS_TRACKER = [
 	'scripts',
@@ -41,6 +42,16 @@ export function autocomplete(data, args) {
 }
 
 let hostMap, network, fragments, cc, tracker, plan;
+let translation = {
+	clean: act_clean,
+	addserv: act_addserv,
+	rmserv: act_rmserv,
+	inspect: act_inspect,
+	backdoors: act_backdoors,
+	info: act_info,
+	memory: act_memory,
+	plan: act_plan,
+}
 
 /** @param {NS} ns **/
 export async function main(ns) {
@@ -63,14 +74,16 @@ export async function main(ns) {
 		return
 	}
 
-	if (typeof this['act_'+ns.args[0]] === 'function') {
-		return this['act_'+ns.args[0]](ns)
+	if ( typeof translation[ns.args[0]] === 'function') {
+		await translation[ns.args[0]](ns)
 	} else {
 		ns.tprint('error: action not found, please use help to list all available actions.')
 	}
+
+	return true
 }
 
-function act_clean(ns) {
+async function act_clean(ns) {
 	// Reset state in localStorage
 	localStorage.clear()
 	ns.tprint('State reset: ', localStorage)
@@ -78,7 +91,7 @@ function act_clean(ns) {
 	// Restore tracking information
 	Tracker.save(tracker)
 }
-function act_addServ(ns) {
+async function act_addserv(ns) {
 	var ram = ns.args[1]
 
 	if (!ram) {
@@ -89,7 +102,7 @@ function act_addServ(ns) {
 	cc.addServers.push([OWN_SERVER_PREFIX, ram])
 	CC.save(cc)
 }
-function act_rmserv(ns) {
+async function act_rmserv(ns) {
 	let name = ns.args[1]
 
 	if (name == null) {
@@ -100,7 +113,7 @@ function act_rmserv(ns) {
 	cc.deleteServers.push(name)
 	CC.save(cc)
 }
-function act_inspect(ns) {
+async function act_inspect(ns) {
 	let name = ns.args[1]
 
 	if (name == null) {
@@ -230,7 +243,7 @@ ${tPrint}
 
 	ns.tprint(out)
 }
-function act_backdoors(ns) {
+async function act_backdoors(ns) {
 	ns.tprint('Hacked servers without backdoor:')
 
 	hostMap.hosts.forEach((host) => {
@@ -247,7 +260,7 @@ function act_backdoors(ns) {
 		}
 	})
 }
-function act_info(ns) {
+async function act_info(ns) {
 	let running = 0,
 				bd = 0,
 				totalThreads = 0,
@@ -444,7 +457,7 @@ ${fragments.used.map(root => {
 
 			ns.tprint(out)
 }
-function act_list(ns) {
+async function act_list(ns) {
 	ns.tprint(
 		`Collecting info from ${hostMap.hosts.length} distinct hosts...`
 	)
@@ -489,7 +502,7 @@ function act_list(ns) {
 	
 	ns.alert(out2)
 }
-function act_plan(ns) {
+async function act_plan(ns) {
 	let taskMap = new Map()
 			for ( let host of network.nodes ) {
 				// Fetch all running workers for this host.
@@ -527,10 +540,9 @@ ${taskPrint}
 [Network]
 ${formatPipe(plan.network, '', taskMap)}`)
 			}
-			break
-
-		case 'fragments':
-			var tPrint = ''
+}
+async function act_fragments(ns) {
+	var tPrint = ''
 
 			for (let [root, frag] of fragments.state) {
 				tPrint += `+ [X.${frag.x}, Y.${frag.y}, R.${frag.rotation}]\n`
@@ -542,42 +554,91 @@ ${formatPipe(plan.network, '', taskMap)}`)
 -- Fragments --
 ${tPrint}`)
 }
-function act_memory(ns) {
-	let totalFree = 0
-	for( let [host, free] of network.free ) {
-		totalFree += free
+async function act_memory(ns) {
+	if (ns.args.length > 1) {
+		if (ns.args[1] == 'reservation') return act_memory_reservation(ns, ...ns.args.slice(2))
 	}
 
-			let totalUsed = 0,
-				hostUsed = new Map()
-			for( let [jid, used, host] of network.state.get('__taken') ) {
-				totalUsed += used
-				hostUsed.set(host, (hostUsed.has(host) ? hostUsed.get(host) : 0) + used)
-			}
+	let totalUsed = 0,
+			hostUsed = new Map(),
+			totalFree = 0,
+			totalOverhang = 0,
+			hostOverhang = new Map()
+			
+	for( let host of network.nodes ) {
+		let free = hostMap.servers[host].maxRam - hostMap.servers[host].ramUsed
+			
+		totalFree += free
+		totalUsed += hostMap.servers[host].ramUsed
 
-			let totalOverhang = 0,
-				hostOverhang = new Map()
-			for( let host of network.nodes ) {
-				let overhang = hostMap.servers[host].maxRam - hostMap.servers[host].ramUsed
+		if (hostMap.servers[host].ramUsed > 0) {
+			hostUsed.set(host, hostMap.servers[host].ramUsed)
+		}
 
-				if (overhang > 0 && overhang < MIN_WORKER_RAM) {
-					totalOverhang += overhang
-					hostOverhang.set(host, overhang)
-				}
-			}
-
-			// ToDo: can fill host with multiple scripts, not just min_worker_ram
-			let avoidableOverhang = Array.from(hostOverhang.keys()).filter(host => hostMap.servers[host].maxRam % MIN_WORKER_RAM == 0)
+		if (free > 0 && free < MIN_WORKER_RAM) {
+			totalOverhang += free
+			hostOverhang.set(host, free % MIN_WORKER_RAM)
+		}
+	}
 
 			ns.tprint(`
 -- [Memory] --
 
 Free:       ${totalFree >= 0 ? ns.nFormat(totalFree, '0,000.00')+' GB' : 'NaN'}
 In Use:     ${totalUsed >= 0 ? ns.nFormat(totalUsed, '0,000.00')+' GB' : 'NaN'}
-Overhang:   ${totalOverhang >= 0 ? ns.nFormat(totalOverhang, '0,000.00')+' GB' : 'NaN'} across ${hostOverhang.size} host(s) ${avoidableOverhang.length} avoidable
+Overhang:   ${totalOverhang >= 0 ? ns.nFormat(totalOverhang, '0,000.00')+' GB' : 'NaN'} across ${hostOverhang.size} host(s)
 			`)
 }
-function act_traceroute(ns) {
+async function act_memory_reservation(ns, space = 'harvest') {
+	let relevant = network._lookAhead.filter(el => el[4] == space)
+	if (relevant.length < 2) {
+		ns.tprint('Not enough entries for space ' + space)
+		return
+	}
+
+	let scaleX = 150, scaleY = 20
+
+	let tStart 	= relevant[0][0],
+			tEnd 		= relevant[relevant.length-1][1],
+			cMax 		= Math.max(0, ...relevant.map(el => el[3]))
+
+	ns.tprint(`
+--- [Memory > Look-Ahead Cache] ---
++ Space:                 > ${space} <
++ Showing range (H:m:s): > ${millisToHuman(tEnd-tStart)} <
++ Entries:               > ${relevant.length} <
+`)
+
+		let lines = new Array(scaleY).fill(new Array(scaleX).fill(' '))
+
+		let transT = val => Math.min(scaleY-1, Math.round((val-tStart) / ((tEnd - tStart) / scaleY)))
+		let transS = val => Math.max(0, Math.round(val / (cMax / scaleX))-1)
+
+		let padX = 0, patch = []
+		for (let i = 0; i < relevant.length; i++) {
+			let y1 = transT(relevant[i][0]),
+					y2 = transT(relevant[i][1]),
+					x1 = padX,
+					x2 = Math.min(scaleX-1, padX+transS(relevant[i][3]))
+
+			padX = x2
+			if (padX > 0 && i < (relevant.length-1) && transT(relevant[i+1][0]) > y2) {
+				padX = 0
+			}
+
+
+			lines[y1].splice(x1, x2-x1, ...(new Array(x2-x1).fill('+')))
+			lines[y2].splice(x1, x2-x1, ...(new Array(x2-x1).fill('+')))
+			for (let i = 0; i < (y2-y1); i++) {
+				patch.push([y1+i, x1, (i==0||i>=(y2-y1-1))?'.':'|'])
+				patch.push([y1+i, x2, (i==0||i>=(y2-y1-1))?'.':'|'])
+			}
+		}
+		patch.forEach(el => lines[el[0]].splice(el[1], 1, el[2]))
+
+		ns.tprint('Graph: \n'+lines.map(el => el.join('')).reverse().join('\n'))
+}
+async function act_traceroute(ns) {
 	if (ns.args.length < 2) {
 		ns.tprint('Missing host argument')
 		ns.exit()
@@ -604,7 +665,7 @@ Found route from [${origin}] to [${destination}] in ${path.length} hops.
 	`)
 
 }
-function act_tracker(ns) {
+async function act_tracker(ns) {
 	let tOut = ''
 			switch (ns.args[1]) {
 
@@ -639,7 +700,7 @@ function act_tracker(ns) {
 			
 			ns.tprint(tOut)
 }
-function act_hostmap(ns) {
+async function act_hostmap(ns) {
 	let root = 'home'
 			if (ns.args.length > 1) {
 				root = ns.args[1]
@@ -650,7 +711,7 @@ function act_hostmap(ns) {
 ${formatNodeMap(graphify(hostMap.neighbours), root)}
 			`)
 }
-function act_env(ns) {
+async function act_env(ns) {
 	if (ns.args.length < 2) {
 		ns.tprint(`
 --- Environment ---
@@ -664,7 +725,7 @@ ${Object.entries(cc.flags).map(e => ` ${e[0]}: ${e[1]}`).join('\n')}
 	CC.save(cc)
 	}
 }
-function act_pattern(ns) {
+async function act_pattern(ns) {
 	let stanek = 1;
 
 			if (ns.args.length < 2) {
@@ -730,7 +791,7 @@ ${ns.ls(cc.host, '/data/patterns/').map(
 
 			CC.save(cc)
 }
-function act_files(ns) {
+async function act_files(ns) {
 	let files = new Map()
 			let exclude = ['js', 'exe']
 
@@ -756,7 +817,7 @@ function act_files(ns) {
 ${Array.from(files.keys()).map(k => `${k}: ${files.get(k).length > 3 ? files.get(k).length : files.get(k).join(' , ')}`).join('\n')}
 			`)
 }
-function act_contract(ns) {
+async function act_contract(ns) {
 	if (ns.args.length != 3) {
 		ns.tprint('Usage: run cmd.js contract [host] [file]')
 		ns.exit()
@@ -774,7 +835,7 @@ Data :
 ${ns.codingcontract.getData(ns.args[2], ns.args[1])}\n`)
 */
 }
-function act_ramlist(ns) {
+async function act_ramlist(ns) {
 	// Determine correct hostname, default to script host.
 	let hostname = ns.getHostname()
 	if ( ns.args > 1 ) {
