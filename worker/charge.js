@@ -4,7 +4,7 @@ export async function main(ns) {
 	let hostname = ns.args.splice(0,1)
 
 	// Remove UID from args
-	ns.args.splice(-2, 2)
+	ns.args.splice(-3, 3)
 
 	if (ns.args.length < 1) {
 		

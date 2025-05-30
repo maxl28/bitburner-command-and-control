@@ -11,6 +11,12 @@ export class Bladeburner extends StorageEntry {
   _skills = {}
   _skillsLastUpdate = Date.now()
 
+  _blackOp = {}
+  _blackOpLastUpdate = Date.now()
+
+  _cities = {}
+  _citiesLastUpdate = Date.now()
+
 
   constructor() { super() }
 
@@ -19,4 +25,10 @@ export class Bladeburner extends StorageEntry {
 
   get skills() { return this._skills }
   set skills(val) { this._skills = val; this._skillsLastUpdate = Date.now() }
+
+  get blackOp() { return this._blackOp }
+  set blackOp(val) { this._blackOp = val; this._blackOpLastUpdate = Date.now() }
+
+  get cities() { return this._cities }
+  set cities(val) { this._cities = val; this._citiesLastUpdate = Date.now() }
 }

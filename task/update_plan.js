@@ -1,15 +1,15 @@
-import { CC, Network, Fragments, HostMap, Plan } from 'state/index'
+import { CC, Network, Fragments, HostMap, Plan, Schedule } from 'state/index'
 import { Pipeline, Task } from 'core/queue'
+import { Batch } from 'core/batch'
 import {
-	FARM_MIN_TARGETS,
-	FARM_TARGET_PERCENTAGE,
+	FARM_DESIRED_VOLUME,
 	FARM_THRESHOLD_HACK_CHANCE,
 	FARM_MIN_VOLUME,
-	FARM_MAX_VOLUME,
-	MIN_WORKER_RAM
+	MIN_WORKER_RAM,
+	SCRIPT_COSTS
 } from 'core/globals'
 
-let cc, plan, fragments, network, hostMap
+let cc, plan, fragments, network, hostMap, schedule
 
 /** @param {NS} ns **/
 export async function main(ns) {
@@ -20,6 +20,7 @@ export async function main(ns) {
 	hostMap = HostMap.load()
 	network = Network.load()
 	fragments = Fragments.load()
+	schedule = Schedule.load()
 
 	updateNetworkPlan(ns)
 
@@ -28,181 +29,128 @@ export async function main(ns) {
 }
 
 function updateNetworkPlan(ns) {
-	let totalRAM = planFlags(network.totalRAM)
+	// First allocate side jobs like charge and share to see whats left.
+	planFlags(network.totalRAM)
+	let totalRAM = Math.min(network.spaces.get('harvest'), network.freeRAM())
+	network.space('harvest', totalRAM)
 
-	// Assume plan saturated
-	if (!plan.network.has('Harvester'))
-		plan.network.appendEntry(new Pipeline('Async', [], 'Harvester'))
-	let maxTargets = Math.max(
-		FARM_MIN_TARGETS,
-		Math.ceil(network.targets.size * FARM_TARGET_PERCENTAGE)
-	)
-	let choosenTargets = 0
-
-	//console.log('-----------')
-	//console.log('-- BEGIN --')
-	
-	// Go trough possible targets by max_money desc
+	// Go trough feasible targets by max_money desc
 	for (let target of Array.from(network.targets.keys())) {
-		// Escape if maximum target count reached
-		if (choosenTargets >= maxTargets) break
+		if (totalRAM <= MIN_WORKER_RAM*3)	break
 
 		// Pipeline title
 		let key = `Harvest -${target}-`
 
-		//console.log('EVAL: ' + target)
-
 		// Skip high-end / newly aqquired targets OR targets out of reach OR targets to uninterresting for us.
 		if (
-			hostMap.servers[target].requiredHackingSkill > 1 &&
-			(hostMap.servers[target].requiredHackingSkill >
-			(ns.getPlayer().hacking - ns.getPlayer().hacking * 0.1))
+			Object.hasOwn(hostMap.servers[target], 'requiredHackingSkill') &&
+			hostMap.servers[target].requiredHackingSkill > (ns.getPlayer().hackingLvl * .9)
 		) {
 			// Check if target is in current plan
 			if (plan.network.has(key)) {
 				// Nothing we can do with this host, remove from plan
-				plan.network.get('Harvester').delete(key)
+				plan.network.delete(key)
 			}
+
+			//ns.tprint(`EXIT: target too high lvl for us: ${hostMap.servers[target].requiredHackingSkill} > ${ns.getPlayer().hacking}`)
 
 			continue
 		}
- 
+
 		// Prepare specific pipeline for this host.
-		if (!plan.network.get('Harvester').has(key))
-			plan.network.get('Harvester').appendEntry(new Pipeline('Sync', [], key))
+		if (!plan.network.has(key))
+			plan.network.appendEntry(new Pipeline('Sync', [], key))
 		
 		// Check if we need to push new tasks in this pipeline.
-		if (plan.network.get('Harvester').get(key).remaining() < 1) {
-			// Data batch for this host
-			let data = []
+		if (plan.network.get(key).remaining() < 1) {
+			if (schedule.batches.has(target) && schedule.batches.get(target) > (Date.now()+100)) {
+				//ns.tprint('EXIT: target busy with batch: ', target)
+				continue
+			}
 
-			//console.log(' > PREPARE DATA < ')
+			let serv = hostMap.servers[target]
 
 			// Assume we have evenly split the RAM for now.
-			let batchRAM = totalRAM / maxTargets,
-				chunkThreads = Math.floor(batchRAM / MIN_WORKER_RAM)
+			let chunkThreads = Math.floor(totalRAM / MIN_WORKER_RAM)
+			let memSpace = 'harvest'
 
-			// Constants describing time relation between hack <- grow, weaken, etc.
-			const weakenMul =
-				hostMap.servers[target].weakenTime / hostMap.servers[target].hackTime
-			const growMul =
-				hostMap.servers[target].growTime / hostMap.servers[target].hackTime
+			if (serv.hackAnalyzeChance < FARM_THRESHOLD_HACK_CHANCE && serv.hackDifficulty >= serv.minDifficulty * 1.1) {
+				// ToDo: prime server
+				let tWeaken = Math.ceil(Math.min(chunkThreads, (serv.hackDifficulty - serv.baseDifficulty)*4))
 
-			// Target intel
-			const hackChance = ns.hackAnalyzeChance(target)
-			const targetVolume =
-				Math.floor(
-					hostMap.servers[target].moneyAvailable /
-						(hostMap.servers[target].moneyMax / 100)
-				) / 100
-			
-			// Hack thread count we're going to calculate with.
-			const hHackThreads = Math.floor(Math.min(chunkThreads, ns.hackAnalyzeThreads(target, Math.max(
-				0,
-				hostMap.servers[target].moneyMax * targetVolume)))),
-			// Amount of ns.grow threads needed to counter our ns.hacks.
-				hGrowThreads = hHackThreads * 2,
-			// Accumulated target security increase
-				hSecIncrease = ns.hackAnalyzeSecurity(hHackThreads) + ns.growthAnalyzeSecurity(hGrowThreads)
-			// Start value for weaken thread count.
-			let hWeakenThreads = hGrowThreads
-			
-			// Calculate weaken threads needed to counter hack & grow.
-			let last_delta = 99,
-					cntr = 0
-			do {
-				// Test security decrease.
-				let secDecrease = ns.weakenAnalyze(hWeakenThreads)
-
-				// Correct thread count up or down.
-				if (secDecrease < hSecIncrease) {
-					last_delta = secDecrease / hSecIncrease
-					hWeakenThreads = hWeakenThreads + Math.ceil( hWeakenThreads * last_delta )
-				} else {
-					last_delta = hSecIncrease / secDecrease
-					hWeakenThreads = hWeakenThreads - Math.floor( hWeakenThreads * last_delta )
-				}
-
-				// Prevent infinity loops on ping-pong limes behaviour.
-				cntr++
-			} while ( last_delta > 1 && cntr < 200 )
-			// Correct thread count back from float
-			hWeakenThreads = Math.round(hWeakenThreads)
-
-			// Prepare harvest batch
-			data = [
-				// Add commands accumulated until now.
-				...data,
-				// Weaken server if hack chance too low.
-				...(hackChance < FARM_THRESHOLD_HACK_CHANCE &&
-					hostMap.servers[target].hackDifficulty > hostMap.servers[target].minDifficulty
-					? splitTaskByMultiplier(
-							weakenMul,
-							'/worker/weaken.js',
-							chunkThreads,
-							target
-					  )
-					: []),
-				// Grow server if too little available money.
-				...(targetVolume <= FARM_MAX_VOLUME
-					? [
-							...splitTaskByMultiplier(growMul, '/worker/grow.js', chunkThreads / 2, target),
-							...splitTaskByMultiplier(weakenMul, '/worker/weaken.js', chunkThreads / 2, target)
-						]: []),
-				// In any case, try to get some money!
-				...(hackChance > FARM_THRESHOLD_HACK_CHANCE &&
-				(targetVolume >= FARM_MIN_VOLUME || hostMap.servers[target].moneyAvailable > (ns.getPlayer().money * 2))
-					? [
-							...splitTaskByMultiplier(
-								(1 + (1- hackChance)),
-								'/worker/hack.js',
-								hHackThreads,
-								target
-							),
-							...splitTaskByMultiplier(
-								hackChance * growMul,
-								'/worker/grow.js',
-								hGrowThreads,
-								target
-							),
-							...splitTaskByMultiplier(
-								hackChance * weakenMul,
-								'/worker/weaken.js',
-								hWeakenThreads,
-								target
-							),
-					  ]
-					: [])
-			]
-			
-			//console.log('Tasks: ', data.length)
-			
-			if ( data.length > 0 ) {
-				// Add task batch to plan
-				plan.network
-				.get('Harvester')
-				.get(key)
-				.appendEntry(new Pipeline('Async', data, 'Yield@' + Date.now()))
+				totalRAM -= tryBatch(ns, target, [
+					[ Date.now(), Math.ceil(serv.weakenTime), 'weaken', memSpace, tWeaken, [target] ]
+				])
+				continue
 			}
-		}
 
-		choosenTargets++
+			if ( serv.moneyAvailable <= serv.moneyMax * FARM_MIN_VOLUME ) {
+				let tGrow = Math.min(chunkThreads, Math.ceil(ns.growthAnalyze(target, serv.moneyAvailable < 1000 ? 200 : Math.max(1.1, serv.moneyMax / serv.moneyAvailable))))
+
+				let totalCost = tryBatch(ns, target, [
+					[ Date.now(), Math.ceil(serv.growTime), 'grow', memSpace, tGrow, [target] ],
+					[ Date.now()+Math.ceil(Math.max(1,serv.growTime-serv.weakenTime)), Math.ceil(serv.weakenTime), 'weaken', memSpace, tGrow*2, [target] ]
+				])
+
+				totalRAM -= totalCost
+				continue
+			}
+		
+
+			let batchData = Batch.calc(ns, serv, FARM_DESIRED_VOLUME, chunkThreads, true)
+			if (batchData == false) continue;
+			
+			totalRAM -= tryBatch(ns, target, batchData)
+		} else {
+			//ns.tprint(`EXIT: target busy with ${plan.network.get(key).remaining()} remaining tasks.`)
+		}
 	}
 
-	//console.log('--- END ---')
-	//console.log('-----------')
-
 	plan.save()
+	schedule.save()
+	Network.save(network)
+}
+
+function tryBatch(ns, target, batches) {
+	//ns.tprint(`BATCH: ${target}`)
+
+	// Try and reserve memory on the network
+	let success = [], totalCost = 0
+	for ( let [start, duration, script, space, threads, args] of batches ) {
+		const cost = SCRIPT_COSTS[`/worker/${script}.js`] * threads,
+					wID  = `${target}_${start}`,
+					end  = start + 10 + duration
+		
+		if (network.reserveChunkAt(ns, 'harvest', wID, cost, start, end)) {
+			success.push(wID)
+			totalCost += cost
+		} else {
+			success.forEach(el => network.freeChunksFor(el))
+			return -1
+		}
+	}
+
+	//ns.tprint(`BATCH: ${target} - ${success.length} tasks for ${totalCost} GB`)
+
+	// Register all batches
+	batches.forEach( el => schedule.add(ns, ...el))
+
+	return totalCost
 }
 
 function planFlags(totalRAM) {
+	let sFiles = cc.flags.get('Sf').split(',')
+	let daemonRAM = 0, daemons = []
+
 	if (cc.flags.get('Charge') > 0) {
 		let chargeRAM = totalRAM * cc.flags.get('Charge')
 		totalRAM -= chargeRAM
 
-		if (!plan.network.has('Charge'))
-			plan.network.appendEntry(new Pipeline('Sync', [], 'Charge'))
-		while (plan.network.get('Charge').remaining() < 2) {
+		network.space('charge', chargeRAM)
+
+		if (!plan.network.has('Charge')) plan.network.appendEntry(new Pipeline('Sync', [], 'Charge'))
+		
+			while (plan.network.get('Charge').remaining() < 2 && fragments.state.size > 0) {
 			let tasks = []
 			for (let frag of Array.from(fragments.state.values())) {
 				// Skip booster fragments
@@ -212,6 +160,7 @@ function planFlags(totalRAM) {
 					new Task(
 						'/worker/charge.js',
 						cc.scripts.get('/worker/charge.js'),
+						'charge',
 						10 * Math.floor(chargeRAM / 1.7 / fragments.used.length),
 						[[frag.x, frag.y].join(',')]
 					)
@@ -227,37 +176,33 @@ function planFlags(totalRAM) {
 		let shareRAM = totalRAM * cc.flags.get('Share')
 		totalRAM -= shareRAM
 
+		network.space('share', shareRAM)
+
 		if (!plan.network.has('Share')) plan.network.appendEntry(new Pipeline('Sync', [], 'Share'))
 		if (plan.network.get('Share').remaining() < 2) {
 			plan
 				.get('Share')
 				.appendEntry(
-					new Task('/worker/share.js', cc.scripts.get('/worker/share.js'), 30 * Math.floor(shareRAM / 1.7), [])
+					new Task('/worker/share.js', cc.scripts.get('/worker/share.js'), 'share', 30 * Math.floor(shareRAM / 1.7), [])
 				)
 		}
 	}
-
-	return totalRAM
-}
-
-function splitTaskByMultiplier(mult, script, threads, ...args) {
-	let tasks = []
-
-	// ToDo: Remove this whole function! Circumvent for now
-	mult = 1
-
-	let childThreads = Math.floor(threads / mult)
-
-	for (let i = 0; i < mult; i++) {
-		if (i == Math.ceil(mult)) {
-			// Add overhang threads to last child
-			tasks.push(
-				new Task(script, cc.scripts.get(script), childThreads + (threads - i * childThreads), [...args])
-			)
-		} else {
-			tasks.push(new Task(script, cc.scripts.get(script), childThreads, [...args]))
+	if (sFiles.length > 0) {
+		if ( sFiles.includes('7') ) {
+			daemons.push(['bladeburner', '/worker/daemon_bladeburner.js'])
 		}
 	}
 
-	return tasks
+	if ( daemons.length > 0 && daemonRAM < totalRAM*.45 ) {
+		daemons.forEach( el => {
+			if (!network.daemons.has(el[0])) network.daemons.set(el[0], el[1])
+			daemonRAM += SCRIPT_COSTS[el[1]]
+		})
+		network.space('daemon', daemonRAM )
+
+		totalRAM = Math.max(0, totalRAM - daemonRAM)
+	}
+
+	// Allocate remaining RAM to harvest
+	network.space('harvest', totalRAM)
 }

@@ -21,7 +21,7 @@ export async function main(ns) {
 
 	const currentHacknets = ns.hacknet.numNodes()
 
-	ns.print(`Checking upgrades on existing nodes.`)
+	ns.print(`Checking upgrades on existing nodes with ${ns.nFormat(budget, '$0.000a')}.`)
 
 	let maxedCount = 0
 
@@ -61,10 +61,8 @@ export async function main(ns) {
 				ns.hacknet.getNodeStats(i).ram >= hacknetMaximums.ram &&
 				ns.hacknet.getNodeStats(i).cores >= hacknetMaximums.cores
 			) {
-				ns.print(`Hacknet node ${i} is maxed out!`)
-
 				if (nodeChanged)
-				!cc.flags.get('Silent') && ns.toast(`[Hnet] Node ${i} maxed out!`, 'warning', 10 * 1000)
+				!cc.flags.get('Silent') && cc.notify(ns, 'info', `[Hnet] Node ${i} maxed out!`)
 
 				maxedCount++
 				continue
@@ -91,10 +89,9 @@ export async function main(ns) {
 				if (newNode > -1) {
           budget -= nodeCost
           nodeChanged = true
-					!cc.flags.get('Silent') && ns.toast(
-						`[Hnet] Added node 'hacknet-node-${newNode}' @ ${ns.nFormat(nodeCost, '$ 000a')}!`,
+					!cc.flags.get('Silent') && cc.notify(ns,
 						'warning',
-						10 * 1000
+						`[Hnet] Added node 'hacknet-node-${newNode}' @ ${ns.nFormat(nodeCost, '$ 000a')}!`,
 					)
         }
 			}

@@ -34,14 +34,21 @@ function replacer(key, value) {
       dataType: 'Map',
       value: Array.from(value.entries()), // or with spread: value: [...value]
     };
-  } else {
-    return value;
+  } else if (typeof value === 'bigint') {
+    return {
+      dataType: 'BigInt',
+      value: value.toString()
+    }
   }
+
+  return value
 }
 function reviver(key, value) {
   if(typeof value === 'object' && value !== null) {
     if (value.dataType === 'Map') {
       return new Map(value.value);
+    } else if (value.dataType === 'BigInt') {
+      return BigInt(value.value)
     }
   }
   return value;

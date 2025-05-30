@@ -19,16 +19,17 @@ export async function main(ns) {
 
 	let hasChanged = true
 	do {
-		hasChanged = upgradeNetwork(ns, ns.getPlayer().money * OWN_SERVER_BUY_CORPUS)
+		hasChanged = upgradeNetwork(ns, Math.floor(ns.getPlayer().money * OWN_SERVER_BUY_CORPUS))
 	} while (hasChanged)
 
 	Network.save(network)
 }
 
 function upgradeNetwork(ns, corpus) {
-
 	// Aggregate all bought nodes
 	const nodes = ns.getPurchasedServers()
+
+	//ns.tprint(`[CC@${cc.host}] Upgrading network of ${nodes.length}/${ns.getPurchasedServerLimit()} with corpus \$${formatMoney(corpus)}`)
 
 	// Can we double computing power?
 	if (ns.getPurchasedServerCost(2 * cc.nodeStep) <= corpus && cc.nodeStep < OWN_SERVER_MAX_GB) {
@@ -43,18 +44,15 @@ function upgradeNetwork(ns, corpus) {
 		return true
 	}
 
-
-
 	// Notify user about step change
 	if (nodeStepRaiseCounter > 0) {
 
 		let oldGB = cc.nodeStep
 		for (var a = 0; a < nodeStepRaiseCounter; a++) oldGB /= 2
 
-		!cc.flags.get('Silent') && ns.toast(
-			`[CC@${cc.host}] Raising node step ${formatMoney(oldGB)} -> ${formatMoney(cc.nodeStep)} GB`,
+		!cc.flags.get('Silent') && cc.notify(ns,
 			'info',
-			10 * 1000
+			`Raising node step ${formatMoney(oldGB)} -> ${formatMoney(cc.nodeStep)} GB`,
 		)
 
 		// Reset counter
@@ -63,6 +61,8 @@ function upgradeNetwork(ns, corpus) {
 		CC.save(cc)
 	}
 
+	//ns.tprint(`[CC@${cc.host}] NodeStep at ${cc.nodeStep} GB / \$${formatMoney(ns.getPurchasedServerCost(cc.nodeStep))}`)
+
 	// Can we obtain more computing power?
 	if (
 		// Can we afford a significant improvement?
@@ -70,6 +70,7 @@ function upgradeNetwork(ns, corpus) {
 		// Are there free slots?
 		nodes.length < ns.getPurchasedServerLimit()
 	) {
+		ns.tprint(`[CC@${cc.host}] Purchasing new server for \$${ns.getPurchasedServerCost(cc.nodeStep)}`)
 
 		// Try purchase server
 		var res = ns.purchaseServer(OWN_SERVER_PREFIX, cc.nodeStep)
@@ -81,10 +82,9 @@ function upgradeNetwork(ns, corpus) {
 			network.nodes.push(res)
 
 			// Notify user
-			!cc.flags.get('Silent') && ns.toast(
-				`[CC@${cc.host}] Adding ${formatMoney(cc.nodeStep)} GB computing power: ${res}`,
+			!cc.flags.get('Silent') && cc.notify(ns,
 				'info',
-				10 * 1000
+				`Adding ${formatMoney(cc.nodeStep)} GB computing power: ${res}`
 			)
 
 			// Signal network change
@@ -92,16 +92,15 @@ function upgradeNetwork(ns, corpus) {
 		}
 	}
 
+	//ns.tprint(`[CC@${cc.host}] Can Upgrade: ${nodes.length * cc.nodeStep} > ${network.privateRAM} : ${nodes.length * cc.nodeStep > network.privateRAM}`)
+
 	// Can we upgrade a private node?
 	if (
 		// Can we afford the upgrade?
 		ns.getPurchasedServerCost(cc.nodeStep) <= corpus &&
-		// Are there outdated nodes?
-		nodes.length * cc.nodeStep > network.privateRAM &&
 		// Are we already at the server limit?
 		nodes.length >= ns.getPurchasedServerLimit()
 	) {
-
 		// Find smallest outdated node
 		var lastSize = cc.nodeStep,
 			upgradeTarget = 0
@@ -119,8 +118,9 @@ function upgradeNetwork(ns, corpus) {
 			}
 		}
 
+
 		// Return if improvement not significant
-		if (cc.nodeStep < lastSize * OWN_SERVER_IMPROVEMENT) return false
+		if (cc.nodeStep < lastSize * OWN_SERVER_IMPROVEMENT) return false;
 
 		// Halt any scripts
 		ns.killall(nodes[upgradeTarget])
@@ -128,11 +128,9 @@ function upgradeNetwork(ns, corpus) {
 		// Delete outdated node
 		const hasDeleted = ns.deleteServer(nodes[upgradeTarget])
 
-		!cc.flags.get('Silent') && ns.toast(
-			`[CC@${cc.host}] Removing outdated node {${nodes[upgradeTarget]}}`,
-			hasDeleted ? 'success' : 'error',
-			6 * 1000
-		)
+		hasDeleted ? 
+			cc.notify(ns, 'success', `Removing outdated node {${nodes[upgradeTarget]}}`) :
+			cc.notify(ns, 'error', `Failed to queue delete for outdate node {${nodes[upgradeTarget]}}`)
 
 		// Signal network change
 		return hasDeleted

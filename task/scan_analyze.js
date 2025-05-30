@@ -13,9 +13,7 @@ export async function main(ns) {
 
 	// Reset network state, preserve RAM chunks
 	network = Network.load()
-	const chunks = network.chunks
-	network = new Network()
-	network.chunks = chunks
+	network.reset()
 
 	// Do our job
 	await analyzeScan(ns)
@@ -35,6 +33,8 @@ export async function analyzeScan(ns) {
 		hostMap.servers[host].hackTime = ns.getHackTime(host)
 		hostMap.servers[host].growTime = ns.getGrowTime(host)
 		hostMap.servers[host].weakenTime = ns.getWeakenTime(host)
+
+		hostMap.servers[host].hackAnalyzeChance = ns.hackAnalyzeChance(host)
 
 		// Do we own the server yet?
 		tryTakeServer(ns, host)
@@ -59,7 +59,7 @@ export async function analyzeScan(ns) {
 			// Do we have free computing power?
 			if (used < max && max - used > MIN_WORKER_RAM) {
 				// Add free resources on this node to network available
-				network.state.get('__free').push([host, max - used])
+				network.free.push([host, max - used])
 			}
 
 			// Loop trough all running scripts
@@ -73,11 +73,10 @@ export async function analyzeScan(ns) {
 					const cost =
 							ns.getRunningScript(proc.pid).threads *
 							ns.getScriptRam(proc.filename, host),
-						wID = proc.args.length > 2 ? proc.args[proc.args.length - 2] : ''
+						wID = proc.args.length > 2 ? proc.args[proc.args.length - 2] : '',
+						memSpace =  proc.args.length > 3 ? proc.args[proc.args.length - 3] : ''
 
-					network.state.get('__taken').push([wID, cost, host])
-					if (!network.taken.has(wID)) network.taken.set(wID, 0)
-					network.taken.set(wID, network.taken.get(wID) + cost)
+					network.register(wID, memSpace, host, cost)
 
 					// Add worker to state
 					network.state.set(
@@ -124,7 +123,7 @@ function tryTakeServer(ns, host) {
 	) {
 		// Try to take server
 		if (takeServer(ns, host)) {
-			!cc.flags.get('Silent') && ns.toast(`[CC@${cc.host}] Took over '{${host}}'`, 'info', 10 * 1000)
+			!cc.flags.get('Silent') && cc.notify(ns, 'info', `Took over '{${host}}'`)
 		}
 	}
 }

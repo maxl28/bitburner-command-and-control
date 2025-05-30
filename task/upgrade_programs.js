@@ -9,20 +9,17 @@ export async function main(ns) {
 
 	cc = CC.load()
 
-	//upgradePrograms(ns, ns.getPlayer().money * .75)
+	upgradePrograms(ns, ns.getPlayer().money * .75)
 }
 
 function upgradePrograms(ns, corpus) {
 
 		// Do we need TOR access?
 		if (!ns.getPlayer().tor && corpus >= 200 * 1000) {
+			cc.notify(ns, 'error', 'Please manually buy a TOR modem!') 
 
 			// Notify user
-			!cc.flags.get('Silent') && ns.toast(
-				`[CC@${cc.host}] Buying TOR modem...`,
-				ns.purchaseTor() ? 'info' : 'error',
-				10 * 1000
-			)
+			//!cc.flags.get('Silent') && ns.purchaseTor() ? cc.notify(ns, 'success', 'Bought TOR modem!') : cc.notify(ns, 'error', 'Failed to purchase TOR modem!')
 		}
 
 		for (const prog of GAME_PROGRAMS) {
@@ -36,11 +33,10 @@ function upgradePrograms(ns, corpus) {
 			) {
 
 				// Buy and notify user
-				!cc.flags.get('Silent') && ns.toast(
-					`[CC@${cc.host}] Purchasing program '${prog[0]}'...`,
-					ns.purchaseProgram(prog[0]) ? 'success' : 'error',
-					10 * 1000
-				)
+				!cc.flags.get('Silent') && ns.purchaseProgram(prog[0]) ? 
+					cc.notify(ns, 'success', `Purchasing program '${prog[0]}'...`) :
+					cc.notify(ns, 'error', `Failed to purchase program '${prog[0]}'!`)
+				
 				ns.tprint(`[CC@${cc.host}] Purchasing program '${prog[0]}'...`)
 			}
 		}

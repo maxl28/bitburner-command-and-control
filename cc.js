@@ -1,6 +1,7 @@
 import { asyncRun } from 'core/run'
 import { Performance } from 'core/performance'
-import { CC, Network, HostMap, Fragments, Tracker, Plan } from 'state/index'
+import { Pipeline } from './core/queue'
+import { CC, Network, HostMap, Fragments, Tracker, Plan, Schedule } from 'state/index'
 import { CC_CYCLE_PAUSE, CC_BIG_TICK_COUNT, WORKER_SCRIPTS, DEBUG_TICK } from 'core/globals'
 
 let perf = new Performance()
@@ -10,39 +11,11 @@ let network
 let hostMap
 let fragments
 let tracker
+let schedule
 
 /** @param {NS} ns **/
 export async function main(ns) {
-
-	// HOTFIX: for bug in the game's dynamic RAM calculation.
-	ns.exec('', ns.getHostname())
-
-	DEBUG_TICK && perf.mark('Startup')
-
-	DEBUG_TICK && perf.mark('Parse CLI')
-	cc.host = ns.getHostname()
-	cc.parseFlags(ns)
-	cc.updateRamBuffer(ns)
-	CC.save(cc)
-	DEBUG_TICK && perf.done('Parse CLI')
-
-	DEBUG_TICK && perf.mark('State Vars')
-	// Fetch _current_ state
-	network = Network.load()
-	hostMap = HostMap.load()
-	fragments = Fragments.load()
-	plan = Plan.load()
-	DEBUG_TICK && perf.done('State Vars')
-
-	DEBUG_TICK && perf.mark('Initial Tick')
-	await stateTick(ns, -1)
-	DEBUG_TICK && perf.done('Initial Tick')
-
-	//cc.updateNodestep(ns, hostMap)
-	cc.notifyUpstart(ns, hostMap)
-
-	DEBUG_TICK && perf.done('Startup')
-	DEBUG_TICK && ns.tprint(perf.fetch())
+	await init(ns)
 
 	let tick = 0
 	do {
@@ -114,6 +87,7 @@ async function stateTick(ns, tick = 0) {
 	Network.save(network)
 	HostMap.save(hostMap)
 	plan.save()
+	schedule.save()
 	dbgUp && perf.done('stateTick.save')
 
 	dbgUp && perf.mark('stateTick.markTracker')
@@ -160,6 +134,12 @@ async function stateTick(ns, tick = 0) {
 	await asyncRun(ns, 'task/deploy.js')
 	dbgUp && perf.done('stateTick.deploy')
 
+	dbgUp && perf.mark('stateTick.Schedule.tick')
+	schedule = Schedule.load()
+	plan = Plan.load()
+	schedule.tick(ns, plan)
+	dbgUp && perf.done('stateTick.Schedule.tick')
+
 	// Do utility actions like contracts every now and again
 	if (tick % CC_BIG_TICK_COUNT == 0) {
 		await asyncRun(ns, 'task/util.js')
@@ -172,4 +152,36 @@ async function stateTick(ns, tick = 0) {
 	fragments = Fragments.load()
 	plan = Plan.load()
 	dbgUp && perf.done('stateTick.load')
+}
+
+async function init(ns) {
+	DEBUG_TICK && perf.mark('Startup')
+
+	DEBUG_TICK && perf.mark('Parse CLI')
+	cc.host = ns.getHostname()
+	cc.parseFlags(ns)
+	cc.updateRamBuffer(ns)
+	CC.save(cc)
+	DEBUG_TICK && perf.done('Parse CLI')
+
+	DEBUG_TICK && perf.mark('State Vars')
+	// Fetch _current_ state
+	network = Network.load()
+	hostMap = HostMap.load()
+	fragments = Fragments.load()
+	plan = Plan.load()
+	schedule = Schedule.load()
+	DEBUG_TICK && perf.done('State Vars')
+
+	DEBUG_TICK && perf.mark('Initial Tick')
+	await stateTick(ns, -1)
+	DEBUG_TICK && perf.done('Initial Tick')
+
+	//cc.updateNodestep(ns, hostMap)
+	cc.notifyUpstart(ns, hostMap)
+
+	DEBUG_TICK && perf.done('Startup')
+	DEBUG_TICK && ns.tprint(perf.fetch())
+
+	await ns.sleep(1)
 }

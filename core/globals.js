@@ -3,7 +3,29 @@
 /////////////////////////////
 export const DEBUG_TICK = false
 export const DEBUG_RUN = false
-export const DEBUG_DISPATCH = false
+export const DEBUG_DISPATCH = false 
+
+
+/////////////////////////////
+///////	  GAMEPLAY		///////
+/////////////////////////////
+export const OWN_SERVER_START_GB = 64
+export const OWN_SERVER_MAX_GB = 65536
+export const OWN_SERVER_PREFIX = "p-node"
+export const OWN_SERVER_IMPROVEMENT = .20
+export const OWN_SERVER_BUY_CORPUS = .75
+
+export const MIN_WORKER_RAM = 1.65
+export const HNET_BUY_CORPUS = .65
+export const FARM_THRESHOLD_HACK_CHANCE = .45
+export const FARM_MIN_VOLUME = .4
+export const FARM_MAX_VOLUME = .9
+export const FARM_DESIRED_VOLUME = .3
+export const FARM_MIN_TARGETS = 2
+export const FARM_TARGET_PERCENTAGE = .4
+
+export const STOCK_COMISSION_FEE = 100000
+
 
 
 /////////////////////////////
@@ -15,8 +37,26 @@ export const MAX_SCRIPT_RUNTIME = 4 * 1000
 export const CC_CYCLE_PAUSE = .075 * 1000
 export const CC_BIG_TICK_COUNT = 300
 export const CC_PLAN_UPDATE_TICK_COUNT = 2
-export const WORKER_SCRIPTS = ['/worker/share.js', '/worker/hack.js', '/worker/grow.js', '/worker/weaken.js', '/worker/charge.js']
+
+export const SCHEDULE_BUFFER_SIZE = 500
+export const CC_NOTIFY_LEVELS = {'success': 0, 'info': 1, 'warning': 2, 'error': 3, 'none': 100}
+
+
+/////////////////////////////
+///////	 GAME INTEL		///////
+/////////////////////////////
+export const WORKER_SCRIPTS = [
+	'/worker/share.js', '/worker/charge.js',
+	'/worker/hack.js', '/worker/grow.js', '/worker/weaken.js',
+	'/worker/daemon_bladeburner.js'
+]
 export const KILL_SCRIPTS = ['/worker/share.js', '/worker/charge.js']
+export const SCRIPT_COSTS = {
+	'/worker/hack.js': 1.75,
+	'/worker/grow.js': 1.75,
+	'/worker/weaken.js': 1.75,
+	'/worker/daemon_bladeburner.js': 15.6,
+}
 export const GAME_PROGRAMS = [
 	['BruteSSH.exe', .5 * 1000000],
 	['FTPCrack.exe', 1.5 * 1000000],
@@ -43,23 +83,4 @@ export const GAME_FRAGMENTS = {
 	30: '+x% all bladeburner stats',
 }
 
-
-
-/////////////////////////////
-///////	  GAMEPLAY		///////
-/////////////////////////////
-export const OWN_SERVER_START_GB = 64
-export const OWN_SERVER_MAX_GB = 65536
-export const OWN_SERVER_PREFIX = "p-node"
-export const OWN_SERVER_IMPROVEMENT = .20
-export const OWN_SERVER_BUY_CORPUS = .75
-
-export const MIN_WORKER_RAM = 1.65
-export const HNET_BUY_CORPUS = .65
-export const FARM_THRESHOLD_HACK_CHANCE = .45
-export const FARM_MIN_VOLUME = .3
-export const FARM_MAX_VOLUME = .9
-export const FARM_MIN_TARGETS = 2
-export const FARM_TARGET_PERCENTAGE = 1
-
-export const STOCK_COMISSION_FEE = 100000
+export const GAME_CITIES = ['Sector-12', 'Aevum', 'Volhaven', 'Chongqing', 'New Tokyo', 'Ishima']

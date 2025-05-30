@@ -25,20 +25,6 @@ export const codingContractTypesMetadata = [
     },
   },
   {
-    name: 'Total Ways to Sum',
-    solver: function (data) {
-      var ways = [1]
-      ways.length = data + 1
-      ways.fill(0, 1)
-      for (var i = 1; i < data; ++i) {
-        for (var j = i; j <= data; ++j) {
-          ways[j] += ways[j - i]
-        }
-      }
-      return ways[data]
-    },
-  },
-  {
     name: 'Spiralize Matrix',
     solver: function (data) {
       var spiral = []
@@ -577,187 +563,369 @@ export const codingContractTypesMetadata = [
   },
   {
     name: 'Compression I: RLE Compression',
-    solver: function(data) {
-      let encodedMsg = '',
-        counter = 0,
-        previousChar = data[0]
-
-      for ( let char of data ) {
-        // Do we have a char repeat and are under maximum length?
-        if ( char == previousChar && counter < 9 ) {
-          counter++
-        } 
-        // If not add what we have to encoded string and prepare env for next 'run'.
-        else {
-          encodedMsg += `${counter}${previousChar}`
-
-          previousChar = char
-          counter = 1
+    solver: function(input) {
+      let answer = ``
+      for (let i = 0; i < input.length; i) {
+        let char = input[i]
+        let count = 1
+        while (i + count < input.length && count < 9 && input[i + count] == char) {
+          count++
         }
+
+        answer += `${count}${char}`
+        i += count
       }
 
-      // Add overhang
-      if ( counter < 9 ) encodedMsg += `${counter}${previousChar}`
-
-      return encodedMsg
+      return answer
     }
   },
-  // ToDo: fix this one
   {
-    name: 'Total Ways to Sum II @@',
-    solver: function (data) {
-      var ways =  []
+    name: 'HammingCodes: Integer to Encoded Binary',
+    solver: function(input) {
+      const data = input
+        .toString(2)
+        .split(``)
+        .map(b => Number.parseInt(b))
 
-      // Go trough every number in list
-      for( let x in data[1] ) {
-        
-        var max = x,
-          way = [x]
+      let numParityBits = 0
+      while (Math.pow(2, numParityBits) < numParityBits + data.length + 1) {
+        numParityBits++
+      }
 
-          // Add consecutive numbers from list
-          for( let y in data[1] ) {
-            if ( max + y <= data[0] ) {
-              max += y
-              way.push(y)
-            }
+      const encoding = Array(numParityBits + data.length + 1).fill(0)
+      const parityBits = []
+      // TODO: populate parityBits with 2^x for x in range 0 to (numParityBits - 1), then
+      //       the below calcualtion go away in favor of `if (i in parityBits) continue;
+      for (let i = 1; i < encoding.length; i++) {
+        const pow = Math.log2(i)
+        if (pow - Math.floor(pow) === 0) {
+          parityBits.push(i)
+          continue
+        }
+
+        encoding[i] = data.shift()
+      }
+
+      const parity = encoding.reduce(
+        (total, bit, index) => (total ^= bit > 0 ? index : 0),
+        0
+      )
+      const parityVals = parity
+        .toString(2)
+        .split(``)
+        .map(b => Number.parseInt(b))
+        .reverse()
+      while (parityVals.length < parityBits.length) {
+        parityVals.push(0)
+      }
+
+      for (let i = 0; i < parityBits.length; i++) {
+        encoding[parityBits[i]] = parityVals[i]
+      }
+
+      const globalParity =
+        (encoding.toString().split(`1`).length - 1) % 2 === 0 ? 0 : 1
+      encoding[0] = globalParity
+
+      return encoding.reduce((total, bit) => (total += bit), ``)
+    }
+  },
+  {
+    name: 'HammingCodes: Encoded Binary to Integer',
+    solver: function(data) {
+      let encoding = data;
+
+      const max_exponent = Math.floor(Math.log(data.length) / Math.log(2));
+      let parityBits = [0];
+      for (let i = 0; i < max_exponent; i++) {
+          const parityBit = Math.pow(2, i);
+          parityBits.push(parityBit);
+      }
+      const ones = [...data.matchAll(/1/g)];
+      const error = ones
+          .map((m) => parseInt(m.index))
+          .reduce((xor, i) => xor ^ i);
+      if (error > 0) {
+          const bit = data.charAt(error) === `0` ? `1` : `0`;
+          encoding = data.substring(0, error) + bit + data.substring(error + 1);
+      }
+
+      for (let i = parityBits.length - 1; i >= 0; i--) {
+          const bit = parityBits[i];
+          encoding = encoding.substring(0, bit) + encoding.substring(bit + 1);
+      }
+
+      return Number.parseInt(encoding, 2);
+    }
+  },
+  {
+    name: 'Shortest Path in a Grid',
+    solver: data => get_shortest_path(data,  build_distance_map(data))
+  },
+  {
+      name: 'Proper 2-Coloring of a Graph',
+      solver: function(data) {
+        const vertCount = data[0]
+        const edges = get_unique_edges(data[1])
+        let colors = new Array(vertCount).fill(undefined)
+        colors[0] = 0
+
+        while (true) {
+          let edge = edges.find(e => typeof colors[e.v0] !== typeof colors[e.v1])
+          if (edge === undefined) {
+            edge = edges.find(
+              e => colors[e.v0] === undefined && colors[e.v1] === undefined
+            )
+            if (edge === undefined) break
+            colors[edge.v0] = 0
           }
-        
-        // Sort lowest to highest value
-        way = way.sort((a, b) => { return a > b })
-        
-        // Add solution if we don't have it already
-        if (max == data[0] && !ways.includes(way)) {
-          ways.push(way)
-        }
+
+          const newVert = colors[edge.v0] === undefined ? edge.v0 : edge.v1
+          const oldVert = colors[edge.v0] === undefined ? edge.v1 : edge.v0
+          const lastColor = colors[oldVert]
+          const nextColor = lastColor === 0 ? 1 : 0
+
+          const found_conflict = edges
+            .filter(e => e !== edge && (e.v0 === newVert || e.v1 === newVert))
+            .some(e => {
+              const otherVert = e.v0 === newVert ? e.v1 : e.v0
+              return colors[otherVert] === nextColor
+            })
+
+          if (found_conflict) {
+            colors = []
+            break
+          }
+
+          colors[newVert] = nextColor
       }
 
-     return ways
+      return colors.map(c => (c === undefined ? 0 : c))
     }
   },
   {
-    name: 'HammingCodes: Encoded Binary to Integer @@@',
-    solver: function(data) {
+    name: 'Encryption I: Caesar Cipher',
+    solver: data => {
+      const str = data[0]
+      const shift = data[1]
 
-      let dataBits = [],
-        parietyBits = []
+      let chars = `ABCDEFGHIJKLMNOPQRSTUVWXYZ`
 
-      // Sort data and pariety (error correction) bits
-      for( let i = 0; i < data.length; i++ ) {
-        if( Math.log2(i) % 1 !== 0 ) { dataBits.push(data[i]) }
-        else { parietyBits.push(data[i]) }
+      const rightShift = chars.length - shift
+
+      let answer = ``
+      for (let i = 0; i < str.length; i++) {
+        const start = chars.indexOf(str[i])
+        if (start < 0) {
+          answer += str[i]
+          continue
+        }
+        const end = (start + rightShift) % chars.length
+
+        answer += chars[end]
       }
 
-      // Assume number valid
-      return parseInt( dataBits.join(''), 2 )
-    } 
-  },
-  {
-    name: 'Shortest Path in a Grid @@@',
-    solver: function solver(data) {
-      
-      // Start in top left corner
-      let pos = [0,0],
-          path = [],
-          blacklist = [],
-          cntr = Math.pow(data.length, 2)
-      
-      do {
-        // Decrease overflow counter
-        cntr--
-
-        // Set step test preference to following order:
-        let steps = [
-          [1,0], // Right
-          [0,1], // Down
-          [0,-1], // Left
-          [-1,0], // Up
-        ]
-
-        // Assemble array of possible moves in order.
-        let validSteps = []
-        for( let step of steps ) {
-          // Prepare and sanitize check coordinates.
-          let i = Math.min(Math.max(0, data.length-1), Math.max(0, pos[0] + step[0])),
-              j = Math.min(Math.max(0, data[0].length-1), Math.max(0, pos[1] + step[1]))
-          
-          // Skip same position checks.
-          if (i == pos[0] && j == pos[1]) continue
-          
-          // Add to possibilities if no obstacle encountered.
-          if (data[i][j] != 1) validSteps.push(step)
-        }
-
-        // Remove steps from path
-        // ToDo: replace .filter() for performance, we only need to check the last path entry for match.
-        let filteredSteps = validSteps.filter(s =>
-          !path.includes([pos[0] + s[0], pos[1] + s[1]]) && 
-          !blacklist.includes([pos[0] + s[0], pos[1] + s[1]]))
-
-        console.log(`STEP[${cntr}]{${pos[0]},${pos[1]}}: `, validSteps, filteredSteps)
-
-        // Check if we have novel path choices.
-        if ( filteredSteps.length > 0 ) {
-          // Preserve step order, choose first option always.
-          pos = [
-            pos[0] + filteredSteps[0][0],
-            pos[1] + filteredSteps[0][1]
-          ]
-          path.push(pos)
-        } else if ( validSteps.length > 0) {
-          // Blacklist current position.
-          blacklist.push(pos)
-
-          // Go back one step.
-          pos = path[path.length-2]
-
-          // Remove faux-pas from path.
-          path.pop()
-        } else {
-          // No possible steps from here, return impossible.
-          break
-        }
-        
-        console.log(`MOVE -> {${pos[0]}, ${pos[1]}}`)
-
-        // If we haven't reached the end yet, keep going.
-      } while ( pos != [data.length -1, data[0].length -1] && cntr > 0 )
-
-      console.log('DONE')
-
-      // Prepare empty result.
-      let pathString = ''
-
-      // Reset grid pointer.
-      pos = [0,0]
-
-      // Translate every step to char.
-      for ( let step of path ) {
-        switch( [step[0] - pos[0], step[1] + pos[1]] ) {
-          case [1,0]:
-            pathString += 'U'
-            break
-          case [0,1]:
-              pathString += 'R'
-              break
-          case [-1,0]:
-            pathString += 'D'
-            break
-          case [0,-1]:
-              pathString += 'L'
-              break
-        }
-
-        pos = step
-      }
-
-      // Return empty string if no possible path found, return solution as string otherwise.
-      return path[path.length-1] == [data.length-1, data[0].length-1] ? pathString : ''
+      return answer
     }
   },
   {
-    name: 'Proper 2-Coloring of a Graph @@@@@@',
-    solver: function(data) {
+    name: 'Encryption II: Vigenère Cipher',
+    solver: data => {
+      const str = data[0];
+      const keyword = data[1];
+  
+      let fullkeyword = keyword;
+      for (let i = fullkeyword.length; i < str.length; i++) {
+          fullkeyword += keyword[i % keyword.length];
+      }
+      const chars = `ABCDEFGHIJKLMNOPQRSTUVWXYZ`;
+  
+      let answer = ``;
+      for (let i = 0; i < str.length; i++) {
+          const shift = chars.indexOf(str[i]);
+          const end = (chars.indexOf(fullkeyword[i]) + shift) % chars.length;
+  
+          answer += chars[end];
+      }
+      
+      return answer
+    }
+  },
+  {
+    name: "Compression III: LZ Compression",
+    solver: function (plain) {
+        let cur_state = Array.from(Array(10), () => Array(10).fill(null));
+        let new_state = Array.from(Array(10), () => Array(10));
 
+        function set(state, i, j, str) {
+            const current = state[i][j];
+            if (current == null || str.length < current.length) {
+                state[i][j] = str;
+            } else if (str.length === current.length && Math.random() < 0.5) {
+                // if two strings are the same length, pick randomly so that
+                // we generate more possible inputs to Compression II
+                state[i][j] = str;
+            }
+        }
+
+        // initial state is a literal of length 1
+        cur_state[0][1] = "";
+
+        for (let i = 1; i < plain.length; ++i) {
+            for (const row of new_state) {
+                row.fill(null);
+            }
+            const c = plain[i];
+
+            // handle literals
+            for (let length = 1; length <= 9; ++length) {
+                const string = cur_state[0][length];
+                if (string == null) {
+                    continue;
+                }
+
+                if (length < 9) {
+                    // extend current literal
+                    set(new_state, 0, length + 1, string);
+                } else {
+                    // start new literal
+                    set(new_state, 0, 1, string + "9" + plain.substring(i - 9, i) + "0");
+                }
+
+                for (let offset = 1; offset <= Math.min(9, i); ++offset) {
+                    if (plain[i - offset] === c) {
+                        // start new backreference
+                        set(new_state, offset, 1, string + length + plain.substring(i - length, i));
+                    }
+                }
+            }
+
+            // handle backreferences
+            for (let offset = 1; offset <= 9; ++offset) {
+                for (let length = 1; length <= 9; ++length) {
+                    const string = cur_state[offset][length];
+                    if (string == null) {
+                        continue;
+                    }
+
+                    if (plain[i - offset] === c) {
+                        if (length < 9) {
+                            // extend current backreference
+                            set(new_state, offset, length + 1, string);
+                        } else {
+                            // start new backreference
+                            set(new_state, offset, 1, string + "9" + offset + "0");
+                        }
+                    }
+
+                    // start new literal
+                    set(new_state, 0, 1, string + length + offset);
+
+                    // end current backreference and start new backreference
+                    for (let new_offset = 1; new_offset <= Math.min(9, i); ++new_offset) {
+                        if (plain[i - new_offset] === c) {
+                            set(new_state, new_offset, 1, string + length + offset + "0");
+                        }
+                    }
+                }
+            }
+
+            const tmp_state = new_state;
+            new_state = cur_state;
+            cur_state = tmp_state;
+        }
+
+        let result = null;
+
+        for (let len = 1; len <= 9; ++len) {
+            let string = cur_state[0][len];
+            if (string == null) {
+                continue;
+            }
+
+            string += len + plain.substring(plain.length - len, plain.length);
+            if (result == null || string.length < result.length) {
+                result = string;
+            } else if (string.length == result.length && Math.random() < 0.5) {
+                result = string;
+            }
+        }
+
+        for (let offset = 1; offset <= 9; ++offset) {
+            for (let len = 1; len <= 9; ++len) {
+                let string = cur_state[offset][len];
+                if (string == null) {
+                    continue;
+                }
+
+                string += len + "" + offset;
+                if (result == null || string.length < result.length) {
+                    result = string;
+                } else if (string.length == result.length && Math.random() < 0.5) {
+                    result = string;
+                }
+            }
+        }
+
+        return result ?? "";
+    }
+  },
+  {
+    name: 'Total Ways to Sum',
+    solver: function (data) {
+        const ways = [1]
+        ways.length = data + 1
+        ways.fill(0, 1)
+        for (let i = 1; i < data; ++i) {
+            for (let j = i; j <= data; ++j) {
+                ways[j] += ways[j - i]
+            }
+        }
+        return ways[data]
+    },
+  },
+  {
+      name: 'Total Ways to Sum II',
+      solver: function (data) {
+          const n = data[0];
+          const s = data[1];
+          const ways = [1];
+          ways.length = n + 1;
+          ways.fill(0, 1);
+          for (let i = 0; i < s.length; i++) {
+              for (let j = s[i]; j <= n; j++) {
+                  ways[j] += ways[j - s[i]];
+              }
+          }
+          return ways[n];
+      },
+  },
+  {
+    name: 'Square Root',
+    /** Uses the Newton-Raphson method to iteratively improve the guess until the answer is found.
+     * @param {bigint} n */
+    solver: function (n) {
+        const two = BigInt(2);
+        if (n < two) return n; // Square root of 1 is 1, square root of 0 is 0
+        let root = n / two; // Initial guess
+        let x1 = (root + n / root) / two;
+        while (x1 < root) {
+            root = x1;
+            x1 = (root + n / root) / two;
+        }
+        // That's it, solved! At least, we've converged an an answer which should be as close as we can get (might be off by 1)
+        // We want the answer to the "nearest integer". Check the answer on either side of the one we converged on to see what's closest
+        const bigAbs = (x) => x < 0n ? -x : x; // There's no Math.abs where we're going...
+        let absDiff = bigAbs(root * root - n); // How far off we from the perfect square root
+        if (absDiff == 0n) return root; // Note that this coding contract doesn't guarantee there's an exact integer square root
+        else if (absDiff > bigAbs((root - 1n) * (root - 1n) - n)) root = root - 1n; // Do we get a better answer by subtracting 1?
+        else if (absDiff > bigAbs((root + 1n) * (root + 1n) - n)) root = root + 1n; // Do we get a better answer by adding 1?
+        // Validation: We should be able to tell if we got this right without wasting a guess. Adding/Subtracting 1 should now always be worse
+        absDiff = bigAbs(root * root - n);
+        if (absDiff > bigAbs((root - 1n) * (root - 1n) - n) ||
+            absDiff > bigAbs((root + 1n) * (root + 1n) - n))
+            throw new Error(`Square Root did not converge. Arrived at answer:\n${root} - which when squared, gives:\n${root * root} instead of\n${n}`);
+        return root.toString();
     }
   }
 ]
@@ -773,4 +941,123 @@ function convert2DArrayToString(arr) {
     });
 
     return components.join(",").replace(/\s/g, "")
+}
+
+class Cell {
+  constructor(code, x, y) {
+    this.code = code
+    this.x = x
+    this.y = y
+  }
+}
+
+function build_distance_map(grid) {
+  const width = grid[0].length
+  const height = grid.length
+  const max_size = width * height
+  const map = Array(height)
+    .fill([])
+    .map(() => Array(width).fill(-1))
+
+  const unvisited_cells = [new Cell(`?`, width - 1, height - 1)]
+  let firstCell = true
+
+  while (unvisited_cells.length > 0) {
+    const cell = unvisited_cells.pop()
+
+    const neighbors = get_adjacent_cells(grid, cell.x, cell.y)
+    const visited_neighbors = neighbors.filter(n => map[n.y][n.x] > -1)
+    const unvisited_neighbors = neighbors.filter(n => map[n.y][n.x] === -1)
+
+    if (firstCell) {
+      map[cell.y][cell.x] = 0
+      firstCell = false
+    } else {
+      map[cell.y][cell.x] =
+        visited_neighbors.reduce(
+          (min_dist, n) => Math.min(min_dist, map[n.y][n.x]),
+          max_size
+        ) + 1
+    }
+
+    unvisited_cells.push(...unvisited_neighbors)
+
+    const revisit = visited_neighbors.filter(
+      n => map[n.y][n.x] > map[cell.y][cell.x]
+    )
+    unvisited_cells.push(...revisit)
+  }
+
+  return map
+}
+
+function get_adjacent_cells(grid, x, y) {
+  const width = grid[0].length
+  const height = grid.length
+
+  const up = new Cell(`U`, x, y - 1)
+  const down = new Cell(`D`, x, y + 1)
+  const left = new Cell(`L`, x - 1, y)
+  const right = new Cell(`R`, x + 1, y)
+
+  const cells = [up, down, left, right]
+  const adjacent_cells = []
+
+  for (let cell of cells) {
+    if (cell.x < 0) continue
+    if (cell.y < 0) continue
+    if (cell.x > width - 1) continue
+    if (cell.y > height - 1) continue
+    if (grid[cell.y][cell.x] === 1) continue
+
+    adjacent_cells.push(cell)
+  }
+
+  return adjacent_cells
+}
+
+function get_shortest_path(grid, map) {
+  let answer = ``
+  let pos = [0, 0]
+
+  while (true) {
+    const x = pos[0]
+    const y = pos[1]
+
+    const distance = map[y][x]
+    if (distance <= 0) return answer
+
+    const adjacent_cells = get_adjacent_cells(grid, x, y)
+    const next_cell = adjacent_cells.reduce((min_cell, cell) => {
+      const cell_dist = map[cell.y][cell.x]
+      const min_cell_dist = map[min_cell.y][min_cell.x]
+
+      return cell_dist < min_cell_dist ? cell : min_cell
+    })
+
+    answer += next_cell.code
+    pos = [next_cell.x, next_cell.y]
+  }
+}
+
+
+class Edge {
+  constructor(v0, v1) {
+    this.v0 = v0
+    this.v1 = v1
+    this.v0 = Math.min(v0, v1)
+    this.v1 = Math.max(v0, v1)
+  }
+}
+function get_unique_edges(input) {
+  const unique_edges = []
+  input
+    .map(e => new Edge(e[0], e[1]))
+    .forEach(e => {
+      if (!unique_edges.some(ue => e.v0 === ue.v0 && e.v1 === ue.v1)) {
+        unique_edges.push(e)
+      }
+    })
+
+  return unique_edges
 }

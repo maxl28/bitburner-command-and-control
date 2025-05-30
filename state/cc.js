@@ -1,4 +1,4 @@
-import { OWN_SERVER_START_GB } from 'core/globals'
+import { OWN_SERVER_START_GB, CC_NOTIFY_LEVELS } from 'core/globals'
 import { StorageEntry } from 'core/storage-entry'
 import { Flags } from 'core/flags'
 
@@ -44,6 +44,15 @@ export class CC extends StorageEntry {
 				'Hide any and all annoying ns.toast messages. Usefull if you left the game on',
 				'idle for a few days.',
 				'Also prevents the game from freezing or crashing from notification spam.'
+			].join('\n')
+		],
+		[
+			'notify-level',
+			CC_NOTIFY_LEVELS['info'],
+			[
+				'Set the level of notifications you want to receive.',
+				'Useful to reduce notification spam when running CC in the background.',
+				'Vals: ' + Object.entries(CC_NOTIFY_LEVELS).map(e => e[0]+':'+e[1]).join(', '),
 			].join('\n')
 		],
 		[
@@ -106,32 +115,29 @@ export class CC extends StorageEntry {
 		super()
 	}
 
-	parseFlags(ns) {
-
-		// Reset instance flags
-		this.flags.parse(ns)
-		
+	parseFlags(ns) {		
 		if ( ns.args.includes('help')) {
 			ns.tprint('\n--- HELP ---\n\n' + this.flags.help())
 
 			ns.exit()
 		}
+
+		// Reset instance flags
+		this.flags.parse(ns)
 	}
 
 	notifyUpstart(ns, hostMap) {
-		ns.toast(
-			`[CC@${this.host}] Start with
+		this.notify(ns, 'info', `Start with
 	${this.flags.KillAll ? '--KILL-ALL ' : ''}
 	${this.flags.RunOnce ? '--ONCE ' : ''}
 	${this.flags.HackAll ? '--HACK-ALL ' : ''}
 	${this.flags.NoHnet ? '--NO-HNET ' : ''}
 	${this.flags.Silent ? '--SILENT ' : ''}
 	${this.flags.DebugTick ? '--DEBUG-TICK ' : ''}
+	${this.flags.NotifyLevel ? '--NOTIFY-LEVEL ' + this.flags.NotifyLevel : ''}
 	${this.flags.Share ? '--SHARE ' + this.flags.ShareAmount : ''}
 	${this.flags.Charge ? '--CHARGE ' + this.flags.ChargeAmount : ''}
 	at ${this.nodeStep} GB node step on ${hostMap.hosts.length} visible hosts.`,
-			'warning',
-			10 * 1000
 		)
 	}
 
@@ -155,9 +161,16 @@ export class CC extends StorageEntry {
 
 		ns.ls(this.host, '/worker/').forEach((file) => {
 			const cost = ns.getScriptRam(file, this.host)
-
-			this.scripts.set( file, cost )
+			this.scripts.set( (file[0]=='/'?file:'/'+file), cost )
 		})
+	}
+
+	notify(ns, level, msg, timeout = 10 * 1000, agent = 'CC') {
+		let nLvl = this.flags.get('NotifyLevel')
+
+		if (CC_NOTIFY_LEVELS[level] < nLvl) return 
+
+		ns.toast(`[${agent}@${this.host}] ${msg}`, level, timeout)
 	}
 
 	updateNodestep(ns, hostMap) {

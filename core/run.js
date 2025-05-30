@@ -73,10 +73,12 @@ export function tryDispatch(ns, chunk, script, threads, ...args) {
 		
 		// Spread out dispatch over child entries
 		let runThreads = 0,
-			part
-		while (chunk.length > 0) {
+			part,
+			dispatchCounter = 0
+		while (chunk.length > 0 && dispatchCounter < 500) {
 
 			part = chunk.pop()
+			dispatchCounter++
 
 			runThreads += tryDispatch(
 				ns,
@@ -89,27 +91,30 @@ export function tryDispatch(ns, chunk, script, threads, ...args) {
 			if (threads <= runThreads) break
 		}
 
+		if (dispatchCounter > 499) ns.tprint(`WARN: loop limit reached for ${script}`)
+
 		return runThreads
 	}
 
 	// Check available ressources
-	const ramUsage = script[1] * threads,
-				ramAvail = chunk[1]
+	let ramUsage = 0+(script[1] * threads)
+	const ramAvail = chunk[1]
 
 	// Ensure we only try to take available RAM.
 	if (ramUsage > ramAvail) {
 		threads = Math.floor(ramAvail / script[1])
+		ramUsage = 0+(script[1] * threads)
 	}
 
 	// No Dice, nothing to do.
 	if (threads <= 0) return 0
 
-	DEBUG_DISPATCH && ns.tprint(`TryDispatch: ${script[0]}	on ${chunk[0]}`)
+	DEBUG_DISPATCH && ns.tprint(`TryDispatch: ${script[0]}	on ${chunk[0]} with ${threads} threads / ${ramUsage} RAM;`)
 
 	// Try execute
 	const pid = ns.exec(script[0], chunk[0], threads, chunk[0], ...args, Date.now())
 
-	DEBUG_DISPATCH && ns.tprint(`OK`)
+	DEBUG_DISPATCH && ns.tprint(`${pid > 0 ? 'SUCCESS' : 'FAIL'}`)
 
 	// Return number of successfully deployed threads.
 	return pid > 0 ? threads : 0

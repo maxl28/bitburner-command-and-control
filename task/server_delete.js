@@ -11,9 +11,9 @@ export async function main(ns) {
     const success = ns.deleteServer(node)
 
     if (success) {
-      !cc.flags.get('Silent') && ns.toast(
-        `Removed node '${node}'`,
+      !cc.flags.get('Silent') && cc.notify(ns,
         'warning',
+        `Removed node '${node}'`,
         4 * 1000
       )
     } else {

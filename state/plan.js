@@ -1,6 +1,6 @@
 import { StorageEntry } from 'core/storage-entry'
 import { Pipeline } from 'core/queue'
-import { fetchOrCreateObject, save } from 'core/orm'
+import { fetchOrCreateObject, save, loadRestore } from 'core/orm'
 
 export class Plan extends StorageEntry {
 

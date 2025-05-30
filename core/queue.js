@@ -69,7 +69,9 @@ export class Pipeline {
 		// Remove already occupied RAM from calculation
 		totalRAM -= this.deployedLocalRAM(resources)
 
-		entry.tick(ns, resources, totalRAM)
+		if (totalRAM > 0) {
+			entry.tick(ns, resources, totalRAM)
+		}
 	}
 
 	cleanup(resources) {
@@ -173,6 +175,16 @@ export class Pipeline {
 		return ids
 	}
 
+	curRAMDemand() {
+		const demand = e => e instanceof Task ? e.baseRAMCost * e.threads : e.curRAMDemand();
+
+		if (this.type == 'Sync' && this.cur() !== false) {
+			return demand(this.cur())
+		}
+
+		return this.tasks.list.slice(Math.max(0, this.tasks.index-1)).reduce((cb, e) => cb+demand(e), 0)
+	}
+
 	deployedLocalRAM(resources) {
 		let deployedRAM = 0
 		for (let entry of this.tasks.list) {
@@ -239,17 +251,21 @@ export class Task {
 	doneThreads = 0
 	title = 'Task'
 
-	constructor(script, ramCost, threads, args) {
+	constructor(script, ramCost, memSpace = 'harvest', threads = 1, args = []) {
 		this.script = script
 		this.baseRAMCost = ramCost
+		this.memSpace = memSpace
 		this.threads = threads
 		this.args = args
 	}
 
+	/**
+	 * @param {ns} NS 
+	 */
 	tick(ns, resources, totalRAM) {
 		let numSuccess = 0
 		if (totalRAM > MIN_WORKER_RAM) {
-			let chunk = resources.reserveChunk(totalRAM, this.UID)
+			let chunk = resources.nextFreeChunk(Math.min(totalRAM, this.threads*this.baseRAMCost), this.memSpace, this.UID)
 
 			numSuccess = tryDispatch(
 				ns,
@@ -257,6 +273,7 @@ export class Task {
 				[this.script, this.baseRAMCost],
 				this.threads - this.doneThreads,
 				...this.args,
+				this.memSpace,
 				this.UID
 			)
 		}

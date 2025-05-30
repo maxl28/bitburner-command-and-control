@@ -1,18 +1,39 @@
-import { CC } from 'state/index'
-import { asyncRun } from 'core/run'
+import { CC, Bladeburner } from 'state/index'
 
-let cc
+import { GAME_CITIES } from 'core/globals'
+
+let cc, bb
 
 export async function main(ns) {
 	cc = CC.load()
+	bb = Bladeburner.load()
   
 	// Try / Check Bladeburner status, exit on failure.
-	if( !cc.player.inBladeburner || cc.sourceFileLvl(7) < 1 ) return
+	if( !cc.player.factions.includes('Bladeburners') ) {
+		ns.bladeburner.joinBladeburnerDivision()
+		ns.bladeburner.joinBladeburnerFaction()
 
-	ns.bladeburner.joinBladeburnerDivision()
-	ns.bladeburner.joinBladeburnerFaction()
+		return
+	}
 
-  // Update Bladeburner intel in stages as RAM consumption on these functions is pretty high
-	await asyncRun(ns, 'task/update_bladeburner_actions.js')
-	await asyncRun(ns, 'task/update_bladeburner_skills.js')
+	bb.blackOp = ns.bladeburner.getNextBlackOp()
+
+	bb.skills = {}
+  for ( let skillName of ns.bladeburner.getSkillNames() ) {
+    bb.skills[skillName] = {
+      level: ns.bladeburner.getSkillLevel(skillName),
+      cost: ns.bladeburner.getSkillUpgradeCost(skillName)
+    }
+  }
+
+	bb.cities = {}
+	for ( let cityName of GAME_CITIES ) {
+		bb.cities[cityName] = {
+			chaos: ns.bladeburner.getCityChaos(cityName),
+			communities: ns.bladeburner.getCityCommunities(cityName),
+		}
+	}
+
+
+	Bladeburner.save(bb)
 }

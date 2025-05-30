@@ -10,7 +10,7 @@ export async function main(ns) {
 
     for ( let script of WORKER_SCRIPTS ) {
 
-      await ns.scp(script, cc.host, node)
+      await ns.scp(script, node, cc.host)
     }
   }
 }

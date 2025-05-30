@@ -21,14 +21,14 @@ export async function main(ns) {
 				if (solvingResult) {
 					network.contracts.splice(i, 1)
 
-					!cc.flags.get('Silent') && ns.toast(`[Contracts] Solved ${contract.contract} on ${contract.hostname}. ${solvingResult}`, 'success', 10 * 1000)
+					!cc.flags.get('Silent') && cc.notify(ns, 'success', `[Contracts] Solved ${contract.type} on ${contract.hostname}. ${solvingResult}`)
 					!cc.flags.get('Silent') && ns.tprint(`[${localeHHMMSS()}] Solved ${contract.contract} on ${contract.hostname}. ${solvingResult}`)
 				} else {
-					!cc.flags.get('Silent') && ns.toast(`[Contracts] Wrong answer for ${contract.contract} on ${contract.hostname}`, 'error', 10 * 1000)
+					!cc.flags.get('Silent') && cc.notify(ns, 'error', `[Contracts] Wrong answer for ${contract.type} on ${contract.hostname}`)
 				}
 			} else {
-				!cc.flags.get('Silent') && ns.tprint(`[${localeHHMMSS()}] Unable to find the answer for: ${JSON.stringify(contract)}`)
-				!cc.flags.get('Silent') && ns.toast(`[Contracts] Unable to find the answer for: ${JSON.stringify(contract)}`, 'warning', 10 * 1000)
+				!cc.flags.get('Silent') && ns.tprint(`[${localeHHMMSS()}] Unable to find the answer for: ${contract.type}`)
+				!cc.flags.get('Silent') && cc.notify(ns, 'warning', `[Contracts] Unable to find the answer for: ${contract.type}`)
 			}
 		}
 	}
