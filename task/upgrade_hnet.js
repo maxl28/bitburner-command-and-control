@@ -21,7 +21,7 @@ export async function main(ns) {
 
 	const currentHacknets = ns.hacknet.numNodes()
 
-	ns.print(`Checking upgrades on existing nodes with ${ns.nFormat(budget, '$0.000a')}.`)
+	ns.print(`Checking upgrades on existing nodes with \$ ${ns.format.number(budget, 3)}.`)
 
 	let maxedCount = 0
 
@@ -91,7 +91,7 @@ export async function main(ns) {
           nodeChanged = true
 					!cc.flags.get('Silent') && cc.notify(ns,
 						'warning',
-						`[Hnet] Added node 'hacknet-node-${newNode}' @ ${ns.nFormat(nodeCost, '$ 000a')}!`,
+						`[Hnet] Added node 'hacknet-node-${newNode}' @ \$ ${ns.format.number(nodeCost, 3)}!`,
 					)
         }
 			}

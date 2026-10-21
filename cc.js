@@ -1,40 +1,43 @@
 import { asyncRun } from 'core/run'
 import { Performance } from 'core/performance'
-import { Pipeline } from './core/queue'
-import { CC, Network, HostMap, Fragments, Tracker, Plan, Schedule } from 'state/index'
+import { CC, Network, Hosts, Fragments, Tracker, Plan, Scheduler, Memory } from 'state/index'
 import { CC_CYCLE_PAUSE, CC_BIG_TICK_COUNT, WORKER_SCRIPTS, DEBUG_TICK } from 'core/globals'
 
 let perf = new Performance()
 let cc = new CC()
 let plan
 let network
-let hostMap
+let memory
+let hosts
 let fragments
 let tracker
-let schedule
+let scheduler
 
 /** @param {NS} ns **/
 export async function main(ns) {
+	ns.ramOverride(4.5)
+
 	await init(ns)
 
 	let tick = 0
 	do {
 		perf = new Performance()
 
-			// Shall we shut down the whole network?
-			if ( cc.flags.get('KillAll') ) {
-				perf.mark('Shutdown')
-				for (let node of network.nodes ) {
-					for ( let script of WORKER_SCRIPTS ) {
-						ns.scriptKill(script, node)
-					}
+		// Shall we shut down the whole network?
+		if ( cc.flags.get('KillAll') ) {
+			perf.mark('Shutdown')
+			for (let node of hosts.owned ) {
+				for ( let script of WORKER_SCRIPTS ) {
+					ns.scriptKill(script, node)
 				}
-				perf.done('Shutdown')
-				ns.tprint(perf.fetch())
-				
-				cc.flags.set('KillAll', false)
-				CC.save(cc)
 			}
+			perf.done('Shutdown')
+			ns.tprint(perf.fetch())
+			
+			cc.flags.set('KillAll', false)
+			CC.save(cc)
+			continue;
+		}
 
 		DEBUG_TICK && perf.mark('stateTick')
 		await stateTick(ns, tick)
@@ -42,7 +45,7 @@ export async function main(ns) {
 
 		// Plan shallow RAM distribution
 		let res = {
-			_total: network.totalRAM,
+			_total: memory.totalRAM,
 			Harvester: 1
 		}
 		if (cc.flags.get('Charge') > 0) {
@@ -55,7 +58,7 @@ export async function main(ns) {
 		}
 
 		DEBUG_TICK && perf.mark('Plan.tick')
-		plan.network.tick(ns, network, res)
+		plan.network.tick(ns, memory, res)
 		DEBUG_TICK && perf.done('Plan.tick')
 
 		// Increment loop counter
@@ -85,20 +88,22 @@ async function stateTick(ns, tick = 0) {
 	// Push current vars to global state
 	dbgUp && perf.mark('stateTick.save')
 	Network.save(network)
-	HostMap.save(hostMap)
+	Hosts.save(hosts)
+	Memory.save(memory)
 	plan.save()
-	schedule.save()
 	dbgUp && perf.done('stateTick.save')
 
-	dbgUp && perf.mark('stateTick.markTracker')
 	// Is this our initial tick?
 	if (tick < 0) {
+		dbgUp && perf.mark('stateTick.markTracker')
+
 		// Register new CC instance in tracker
 		tracker = Tracker.load()
 		tracker.ccChanges.push([Date.now(), cc.flags])
 		Tracker.save(tracker)
+
+		
 	}
-	dbgUp && perf.done('stateTick.markTracker')
 
 	dbgUp && perf.mark('stateTick.CCupdate')
 	// Gather sourceFile lvls
@@ -112,11 +117,15 @@ async function stateTick(ns, tick = 0) {
 	cc = CC.load()
 	dbgUp && perf.done('stateTick.CCupdate')
 
-	dbgUp && perf.mark('stateTick.scan')
-	// See if our network has expanded
-	await asyncRun(ns, 'task/scan.js')
-	await asyncRun(ns, 'task/scan_analyze.js')
-	dbgUp && perf.done('stateTick.scan')
+	dbgUp && perf.mark('stateTick.update_hosts')
+	// See if our world has expanded
+	await asyncRun(ns, 'task/update_hosts.js')
+	dbgUp && perf.done('stateTick.update_hosts')
+
+	dbgUp && perf.done('stateTick.update_network')
+	// Note all running tasks etc.
+	await asyncRun(ns, 'task/update_network.js')
+	dbgUp && perf.done('stateTick.update_network')
 
 	// SourceFile-1 Stanek's Gift
 	if (cc.sourceFileLvl(1) > 0) await asyncRun(ns, 'task/update_fragments.js')
@@ -124,21 +133,25 @@ async function stateTick(ns, tick = 0) {
 	// SourceFile-7 Bladeburners 2079
 	if (cc.sourceFileLvl(7) > 0) await asyncRun(ns, 'task/update_bladeburner.js')
 
-	dbgUp && perf.mark('stateTick.PlanUpdate')
+	dbgUp && perf.mark('stateTick.update_plan')
 	// Formulate strategy for current state
 	await asyncRun(ns, 'task/update_plan.js')
-	dbgUp && perf.done('stateTick.PlanUpdate')
+	dbgUp && perf.done('stateTick.update_plan')
+
+	dbgUp && perf.mark('stateTick.Schedule.tick')
+	scheduler = Scheduler.load()
+	memory = Memory.load()
+	
+	scheduler.tick(ns, memory)
+
+	Scheduler.save(scheduler)
+	Memory.save(memory)
+	dbgUp && perf.done('stateTick.Schedule.tick')
 
 	dbgUp && perf.mark('stateTick.deploy')
 	// Push latest worker scripts to all compute nodes
 	await asyncRun(ns, 'task/deploy.js')
 	dbgUp && perf.done('stateTick.deploy')
-
-	dbgUp && perf.mark('stateTick.Schedule.tick')
-	schedule = Schedule.load()
-	plan = Plan.load()
-	schedule.tick(ns, plan)
-	dbgUp && perf.done('stateTick.Schedule.tick')
 
 	// Do utility actions like contracts every now and again
 	if (tick % CC_BIG_TICK_COUNT == 0) {
@@ -147,10 +160,11 @@ async function stateTick(ns, tick = 0) {
 
 	dbgUp && perf.mark('stateTick.load')
 	// Refresh intel
-	network = Network.load()
-	hostMap = HostMap.load()
+	network 	= Network.load()
+	memory 		= Memory.load()
+	hosts 		= Hosts.load()
 	fragments = Fragments.load()
-	plan = Plan.load()
+	scheduler 			= Scheduler.load()
 	dbgUp && perf.done('stateTick.load')
 }
 
@@ -166,19 +180,20 @@ async function init(ns) {
 
 	DEBUG_TICK && perf.mark('State Vars')
 	// Fetch _current_ state
-	network = Network.load()
-	hostMap = HostMap.load()
+	network 	= Network.load()
+	hosts 		= Hosts.load()
+	memory 		= Memory.load()
 	fragments = Fragments.load()
-	plan = Plan.load()
-	schedule = Schedule.load()
+	plan 			= Plan.load()
+	scheduler 	= Scheduler.load()
 	DEBUG_TICK && perf.done('State Vars')
 
 	DEBUG_TICK && perf.mark('Initial Tick')
 	await stateTick(ns, -1)
 	DEBUG_TICK && perf.done('Initial Tick')
 
-	//cc.updateNodestep(ns, hostMap)
-	cc.notifyUpstart(ns, hostMap)
+	//cc.updateNodestep(ns, hosts)
+	cc.notifyUpstart(ns, hosts)
 
 	DEBUG_TICK && perf.done('Startup')
 	DEBUG_TICK && ns.tprint(perf.fetch())

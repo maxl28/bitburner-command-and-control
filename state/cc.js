@@ -33,6 +33,22 @@ export class CC extends StorageEntry {
 	 */
 	player = {}
 
+	/** 
+	 * Any multiplicators gained by bitnodes and relevant to this script.
+	 * 
+	 * Doesnt need to be updated as of now.
+	 */
+	nodeMults = {
+		ScriptHackMoney: 1,
+
+		/**
+		 * Influences how much money the player actually gains when a script hacks a server. This is different from
+		 * ScriptHackMoney. When a script hacks a server, the amount of money in that server is reduced, but the player does
+		 * not gain that same amount.
+		 */
+		ScriptHackMoneyGain: 1,
+	}
+
 	/**
 	 * cc.js process flags
 	 */
@@ -126,7 +142,7 @@ export class CC extends StorageEntry {
 		this.flags.parse(ns)
 	}
 
-	notifyUpstart(ns, hostMap) {
+	notifyUpstart(ns, hosts) {
 		this.notify(ns, 'info', `Start with
 	${this.flags.KillAll ? '--KILL-ALL ' : ''}
 	${this.flags.RunOnce ? '--ONCE ' : ''}
@@ -137,7 +153,7 @@ export class CC extends StorageEntry {
 	${this.flags.NotifyLevel ? '--NOTIFY-LEVEL ' + this.flags.NotifyLevel : ''}
 	${this.flags.Share ? '--SHARE ' + this.flags.ShareAmount : ''}
 	${this.flags.Charge ? '--CHARGE ' + this.flags.ChargeAmount : ''}
-	at ${this.nodeStep} GB node step on ${hostMap.hosts.length} visible hosts.`,
+	at ${this.nodeStep} GB node step on ${hosts.hosts.length} visible hosts.`,
 		)
 	}
 
@@ -167,17 +183,23 @@ export class CC extends StorageEntry {
 
 	notify(ns, level, msg, timeout = 10 * 1000, agent = 'CC') {
 		let nLvl = this.flags.get('NotifyLevel')
-
 		if (CC_NOTIFY_LEVELS[level] < nLvl) return 
 
 		ns.toast(`[${agent}@${this.host}] ${msg}`, level, timeout)
 	}
 
-	updateNodestep(ns, hostMap) {
+	log(ns, level, msg, agent = 'CC') {
+		let nLvl = this.flags.get('NotifyLevel')
+		if (CC_NOTIFY_LEVELS[level] < nLvl) return 
+
+		ns.tprint(`[${agent}@${this.host}][${level}] ${msg}`)
+	}
+
+	updateNodestep(ns, hosts) {
 		// Check for existing private nodes
-		if (hostMap.purchased.length > 0) {
+		if (hosts.purchased.length > 0) {
 			// Loop trough entries and check if we need to raise initial buy threshold
-			hostMap.purchased.forEach((host) => {
+			hosts.purchased.forEach((host) => {
 				if (this.nodeStep < ns.getServerMaxRam(host))
 					this.nodeStep = ns.getServerMaxRam(host)
 			})

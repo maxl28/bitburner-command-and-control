@@ -22,6 +22,6 @@ export async function main(ns) {
 
 	/*
 	ns.tprint(
-		`{hack@${host}} gained ${ns.nFormat(gain, '$0.000a')} from '${target}'`
+		`{hack@${host}} gained ${ns.format.number(gain, 3)} from '${target}'`
 	)*/
 }

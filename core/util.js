@@ -88,3 +88,30 @@ export function millisToHuman(millis) {
   var seconds = ((millis % 60000) / 1000).toFixed(0);
   return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
 }
+
+export function nextID(arr) {
+	for (let i=0;i<arr.length;i++) {
+		if (arr[i] == null) return i
+	}
+
+	return -1
+}
+
+export function releaseID(ns, space = 'batch', id) {
+	let portI = _portSpaces[space].port, portLimit = _portSpaces[space].max
+
+	let val = ns.readPort(portI)
+	if ( isString(val) ) {
+		val = new Array(portLimit)
+	}
+
+	if (val[id] != null) val[id] = null
+
+	ns.writePort(portI, val)
+}
+
+function isString(x) {
+  return Object.prototype.toString.call(x) === "[object String]"
+}
+
+export function ucFirst(str) { return str[0].toUpperCase() + str.slice(1) }

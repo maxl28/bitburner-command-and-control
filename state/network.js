@@ -7,6 +7,10 @@ export class Network extends StorageEntry {
 
 	totalRAM = 0
 	privateRAM = 0
+	/**
+	 * Lit of all hosts capable of running at least one thread.
+	 * @see tasks/update_network.js
+	 */
 	nodes = []
 	contracts = []
 
@@ -18,7 +22,7 @@ export class Network extends StorageEntry {
 	 */
 	state = new Map([
 		['__free', []], // [Host, FreeRAM]
-		['__taken', []] // [JobID, UsedRAM, Host]
+		['__taken', []] // [JobID, UsedRAM, Host, Space]
 	])
 	/**
 	 * Lookahead cache for future ram consumption requests.
@@ -66,9 +70,9 @@ export class Network extends StorageEntry {
 	/**
 	 * Split one chunk of resources into smaller devisions.
 	 *
-	 * @param {[]} chunk List of Host, RAM pairs
-	 * @param {[]} distribution Desired output distribution in percentages, eg. [.1,.3,.5,.1]
-	 * @returns
+	 * @param {Array<[string, number]>} chunk List of Host, RAM pairs
+	 * @param {number[]} distribution Desired output distribution in percentages, eg. [.1,.3,.5,.1]
+	 * @returns {Array<Array<[string, number]>>}
 	 */
 	static splitChunk(chunk, distribution = [0.5, 0.5]) {
 		// Calculate total RAM of chunk
@@ -186,22 +190,22 @@ export class Network extends StorageEntry {
 	 * @returns {boolean}
 	 */
 	reserveChunkAt(ns, memSpace, wID, size, atTime = Date.now(), toTime = Date.now()) {
-		//ns.tprint(`NET reserve ${memSpace} > ${size}GB for ${wID} range ${atTime} - ${toTime}`)
+		ns.tprint(`NET reserve ${memSpace} > ${size}GB for ${wID} range ${atTime} - ${toTime}`)
 
 		let demandSize = Math.ceil(0+size)
 		if (demandSize <= 0) {
-			//ns.tprint(`Err: demand zero`)
+			ns.tprint(`Err: demand zero`)
 			return false
 		}
 
 		if (atTime < (Date.now()-5) || toTime <= atTime) {
-			//ns.tprint(`Err: invalid time range`)
+			ns.tprint(`Err: invalid time range`)
 			return false
 		}
 
 		const totalSpaceRAM = this.spaces.has(memSpace) ? this.spaces.get(memSpace) : 0
 		if (totalSpaceRAM <= 0) {
-			//ns.tprint(`Err: space '${memSpace}' has insufficient RAM: ${totalSpaceRAM}`)
+			ns.tprint(`Err: space '${memSpace}' has insufficient RAM: ${totalSpaceRAM}`)
 			return false
 		}
 
@@ -212,11 +216,12 @@ export class Network extends StorageEntry {
 
 		const demand = size - alreadyReserved
 		if (demand <= 0) {
-			//ns.tprint(`Err: already satisfied`)
+			ns.tprint(`Err: already satisfied`)
+			return true
 		}
 
 		if ( (totalSpaceRAM - Math.max(takenRAM, futureTotal)) < demand ) {
-			//ns.tprint(`Err: no resources available`)
+			ns.tprint(`Err: no resources available`)
 			return false
 		}
 
@@ -268,7 +273,7 @@ export class Network extends StorageEntry {
 		}
 
 		if (deleteUntil > -1) {
-			this._lookAhead = this._lookAhead.splice(0, deleteUntil+1)
+			this._lookAhead.splice(0, deleteUntil+1)
 		}
 
 		return [distribution, total]

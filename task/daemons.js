@@ -21,7 +21,7 @@ export async function main(ns) {
       [script, SCRIPT_COSTS[script]],
       1,
       'daemon',
-      Date.now()
+      'daemon_'+ident+'_0',
     ) > 0) cc.notify(ns, 'info', `Daemon ${ident} started!`, 4*1000)
     else {
       cc.notify(ns, 'error', `Failed to start Daemon ${ident}!`, 2*1000);

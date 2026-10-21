@@ -1,9 +1,9 @@
 import { StorageEntry } from 'core/storage-entry'
 import { findPaths, graphify } from 'core/util'
 
-export class HostMap extends StorageEntry {
-	static storageKey = 'State.HostMap'
-	static storageValue = HostMap
+export class Hosts extends StorageEntry {
+	static storageKey = 'State.Hosts'
+	static storageValue = Hosts
 
 	/**
 	 * @param {Map<String,String[]>} neighbours
@@ -12,6 +12,8 @@ export class HostMap extends StorageEntry {
 
 	purchased = []
 	hosts = []
+	owned = []
+	targets = new Map()
 
 	servers = {}
 
@@ -20,7 +22,7 @@ export class HostMap extends StorageEntry {
 	}
 
 	/**
-	 * Find relatively short path in HostMap.nodes
+	 * Find relatively short path in Hosts.nodes
 	 * from {origin} to {destination}
 	 *
 	 * @param {origin} string

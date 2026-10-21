@@ -1,18 +1,18 @@
-import { HostMap } from 'state/index'
+import { Hosts } from 'state/index'
 
-/** @param HostMap */
-let hostMap 
+/** @param Hosts */
+let hosts 
 
 /** @param {NS} ns **/
 export async function main(ns) {
 
-	hostMap = HostMap.load()
+	hosts = Hosts.load()
 
 	// Check if our map is empty
-	if (!hostMap.hasOwnProperty('hosts') || hostMap.hosts.length == 0) {
+	if (!hosts.hasOwnProperty('hosts') || hosts.hosts.length == 0) {
 		
 		// Set default values
-		hostMap = new HostMap()
+		hosts = new Hosts()
 
 		// Do a deep scan
 		fullScan(ns, 'home', 6)
@@ -21,20 +21,20 @@ export async function main(ns) {
 	// Expand our current would outwards
 	updateScan(ns, 2)
 
-	hostMap.purchased = ns.getPurchasedServers()
+	hosts.purchased = ns.cloud.getServerNames()
 
 	// Save result to storage
-	HostMap.save(hostMap)
+	Hosts.save(hosts)
 }
 
 /** @param {NS} ns **/
 function fullScan(ns, origin = "home", depth = 1) {
 
 	// Add host to list if not already indexed
-	if (!hostMap.hosts.includes(origin)) hostMap.hosts.push(origin)
-	if (!hostMap.neighbours.has(origin)) hostMap.neighbours.set(origin, [])
+	if (!hosts.hosts.includes(origin)) hosts.hosts.push(origin)
+	if (!hosts.neighbours.has(origin)) hosts.neighbours.set(origin, [])
 
-	hostMap.servers[origin] = ns.getServer(origin)
+	hosts.servers[origin] = ns.getServer(origin)
 
 	// Exit on max depth reached
 	if (depth < 0) return
@@ -43,7 +43,7 @@ function fullScan(ns, origin = "home", depth = 1) {
 	ns.scan(origin).forEach(host => { 
 		
 		// Add neighbouring node if not already in list
-		if (!hostMap.neighbours.get(origin).includes(host)) hostMap.neighbours.get(origin).push(host)
+		if (!hosts.neighbours.get(origin).includes(host)) hosts.neighbours.get(origin).push(host)
 
 		// Scan one level deeper
 		fullScan(ns, host, depth - 1)	
@@ -54,10 +54,10 @@ function fullScan(ns, origin = "home", depth = 1) {
 function updateScan(ns, depth = 2) {
 
 	// Traverse known universe
-	hostMap.hosts.forEach((origin, i) => {
+	hosts.hosts.forEach((origin, i) => {
 
 		// Remove orphan entries, scan valid hosts
-		if (!ns.serverExists(origin)) hostMap.hosts.splice(i, 1)
+		if (!ns.serverExists(origin)) hosts.hosts.splice(i, 1)
 		else fullScan(ns, origin, depth)
 	})
 }

@@ -1,16 +1,16 @@
-import { HostMap, Network } from 'state/index'
+import { Hosts, Network } from 'state/index'
 
-let hostMap, network
+let hosts, network
 
 /** @param {NS} ns **/
 export async function main(ns) {
 
-  hostMap = HostMap.load()
+  hosts = Hosts.load()
   network = Network.load()
 
   network.contracts = []
 
-  hostMap.hosts.forEach((hostname) => {
+  hosts.hosts.forEach((hostname) => {
     const files = ns.ls(hostname)
     if (files && files.length) {
       const contracts = files.filter((file) => file.includes('.cct'))

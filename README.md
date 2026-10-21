@@ -17,7 +17,12 @@ Take a look at
 ```
 For further config options.
 
-Also, the file 'core/globals.js' contains basic settings.
+Also, the file 'core/globals.js' contains basic settings, make sure to put your username!
+
+We support some sourcefiles now, pass them as an argument
+```bash
+# run cc.js sf 1,7
+```
 
 ## Debug / Inspect
 ```bash

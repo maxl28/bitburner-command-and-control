@@ -122,7 +122,7 @@ export function formatBarGraph(ns, data, userConfig = {}) {
 		let axis = ''
 
 		if (i % Math.floor(config.yResolution / 5) == 0) {
-			axis += ns.nFormat(i * yStep, '$ 0.000a')
+			axis += '$ ' + ns.format.number(i * yStep, 3)
 			axis += ' '.repeat(yAxisSpace + 1 - axis.length) + '┽' + ' '
 		} else {
 			axis += ' '.repeat(yAxisSpace + 1 - axis.length) + '|' + ' '
@@ -131,8 +131,8 @@ export function formatBarGraph(ns, data, userConfig = {}) {
 		yAxis.push(axis + lines[i])
 	}
 	yAxis.push(
-		ns.nFormat(yMax, '$ 0.000a') +
-		' '.repeat(yAxisSpace + 1 - ns.nFormat(yMax, '$ 0.000a').length) + '┽' + ' ')
+		'$ ' + ns.format.number(yMax, 3) +
+		' '.repeat(yAxisSpace + 1 - ('$ ' + ns.format.number(yMax, 3)).length) + '┽' + ' ')
 
 
 	
@@ -232,4 +232,38 @@ function loopNode(graph, rootNode, prefix = '', doneHosts = []) {
 	}
 
 	return out
+}
+
+
+function normalizeRange(start, end, steps = 20) {
+	if (start >= end) { return [] }
+	let delta = end - start
+	let stepSize = Math.floor(delta / steps)
+	if (stepSize < 1) { return (new Array(delta).map((v,i) => i)) }
+	
+	return Array.from({ length:steps }, (val,i) => start + stepSize*i)
+}
+
+export function formatBatch(ns, b) {
+	let rangeX = normalizeRange(...b.runtime(), 50), sizeY = b._data.length
+	let data = (new Array(rangeX.length).fill(new Array()))
+
+	rangeX.map((val,i) => {
+		let entries = new Array(sizeY).fill('+++')
+
+		b._data.map((task,j) => {
+			if (task[0] <= val && (task[0]+task[1]) >= val) {
+				entries[j] = ' '+(j < 9 ? ' ' : '')+j
+			}
+		})
+
+		data[i] = entries
+	})
+
+	let result = []
+	for (let i=0;i<sizeY;i++) {
+		result.push(data.map((val,j) => val[i]).join(''))
+	}
+
+	return result.join('\n')
 }

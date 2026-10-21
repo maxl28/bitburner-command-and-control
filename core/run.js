@@ -26,8 +26,10 @@ export async function asyncRun(ns, script, ...args) {
 	// Run script, note process ID
 	const pid = ns.run(script, 1, ...args)
 
+	DEBUG_RUN && ns.tprint(`${pid > 0 ? 'SUCCESS' : 'FAIL'}`)
+
 	// Check run error
-	if (pid === 0) return false
+	if (pid < 1) return false
 
 	// Main logic
 	let contains = false
@@ -65,7 +67,7 @@ export async function asyncRun(ns, script, ...args) {
  * @param {Array} script	Pair of [ScriptFileName, ScriptBaseRAMCost]
  */
 export function tryDispatch(ns, chunk, script, threads, ...args) {
-
+	console.log(`-- tryDispatch: ${script[0]}@${ns.format.number(threads, 3)}Trd; Chunks: ${JSON.stringify(chunk)}\n${JSON.stringify(args)}	`)
 	if (chunk.length < 1) return 0
 
 	// Is this a single [host, ram] or a real chunk?
@@ -112,9 +114,10 @@ export function tryDispatch(ns, chunk, script, threads, ...args) {
 	DEBUG_DISPATCH && ns.tprint(`TryDispatch: ${script[0]}	on ${chunk[0]} with ${threads} threads / ${ramUsage} RAM;`)
 
 	// Try execute
+	DEBUG_DISPATCH && console.log("!EXEC: ", script[0], "@", chunk[0], ": ", JSON.stringify([chunk[0], ...args, Date.now()]))
 	const pid = ns.exec(script[0], chunk[0], threads, chunk[0], ...args, Date.now())
 
-	DEBUG_DISPATCH && ns.tprint(`${pid > 0 ? 'SUCCESS' : 'FAIL'}`)
+	DEBUG_DISPATCH && ns.tprint(`${pid > 0 ? '!SUCCESS' : '!FAIL'}`)
 
 	// Return number of successfully deployed threads.
 	return pid > 0 ? threads : 0

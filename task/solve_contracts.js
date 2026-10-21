@@ -43,8 +43,6 @@ function findAnswer(contract) {
 
 	if (codingContractSolution) {
 		answer = codingContractSolution.solver(contract.data)
-	} else {
-		console.error('Unable to find answer for', contract)
 	}
 
 	return answer

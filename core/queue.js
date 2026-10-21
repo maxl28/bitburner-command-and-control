@@ -46,37 +46,37 @@ export class Pipeline {
 		}
 	}
 
-	tick(ns, resources, totalRAM) {
+	tick(ns, memory, totalRAM) {
 		if (this.isDone && this.tasks.repeat) this.reset()
 
-		this.cleanup(resources)
+		this.cleanup(memory)
 
-		if (!this.isDone) this[`run${this.pipeType}`](ns, resources, totalRAM)
+		if (!this.isDone) this[`run${this.pipeType}`](ns, memory, totalRAM)
 	}
 
-	runAsync(ns, resources, totalRAM) {
+	runAsync(ns, memory, totalRAM) {
 		// Handle memory allocation
 		let chunks = splitMemory(totalRAM, this)
 
 		for (let child of this.tasks.list) {
-			child.tick(ns, resources, chunks.data[child.UID])
+			child.tick(ns, memory, chunks.data[child.UID])
 		}
 	}
 
-	runSync(ns, resources, totalRAM) {
+	runSync(ns, memory, totalRAM) {
 		let entry = this.next()
 
 		// Remove already occupied RAM from calculation
-		totalRAM -= this.deployedLocalRAM(resources)
+		totalRAM -= this.deployedLocalRAM(memory)
 
 		if (totalRAM > 0) {
-			entry.tick(ns, resources, totalRAM)
+			entry.tick(ns, memory, totalRAM)
 		}
 	}
 
-	cleanup(resources) {
+	cleanup(memory) {
 		for (let entry of this.tasks.list) {
-			if (entry.isDead(resources)) this.removeByUID(entry.UID)
+			if (entry.isDead(memory)) this.removeByUID(entry.UID)
 		}
 	}
 
@@ -156,10 +156,10 @@ export class Pipeline {
 		}
 	}
 
-	isDead(resources) {
+	isDead(memory) {
 		// Search network for any running workers with taskIDs from this pipeline's tasks
 		for (let id of this.taskIDs()) {
-			if (resources.taken.has(id) && resources.taken.get(id) > 0) return false
+			if (memory._fetch('wID', id, true) > 0) return false
 		}
 
 		return this.isDone
@@ -185,17 +185,15 @@ export class Pipeline {
 		return this.tasks.list.slice(Math.max(0, this.tasks.index-1)).reduce((cb, e) => cb+demand(e), 0)
 	}
 
-	deployedLocalRAM(resources) {
+	deployedLocalRAM(memory) {
 		let deployedRAM = 0
 		for (let entry of this.tasks.list) {
 			if (entry instanceof Task) {
 				if (!entry.isDone) continue
 
-				deployedRAM += resources.taken.has(entry.UID)
-					? resources.taken.get(entry.UID)
-					: 0
+				deployedRAM += memory._fetch('wID', entry.UID, true)
 			} else {
-				deployedRAM += entry.deployedLocalRAM(resources)
+				deployedRAM += entry.deployedLocalRAM(memory)
 			}
 		}
 
@@ -262,10 +260,10 @@ export class Task {
 	/**
 	 * @param {ns} NS 
 	 */
-	tick(ns, resources, totalRAM) {
+	tick(ns, memory, totalRAM) {
 		let numSuccess = 0
 		if (totalRAM > MIN_WORKER_RAM) {
-			let chunk = resources.nextFreeChunk(Math.min(totalRAM, this.threads*this.baseRAMCost), this.memSpace, this.UID)
+			let chunk = memory.next(this.UID, this.memSpace, Math.min(totalRAM, this.threads*this.baseRAMCost))
 
 			numSuccess = tryDispatch(
 				ns,
@@ -283,12 +281,12 @@ export class Task {
 		return this.isDone
 	}
 
-	isDead(resources) {
+	isDead(memory) {
 		return (
 			this.isDone &&
-			(resources.taken.has(this.UID)
-				? resources.taken.get(this.UID) == 0
-				: true)
+			(memory._fetch('wID', this.UID) == null
+				? true
+				: memory._fetch('wID', this.UID) == 0)
 		)
 	}
 

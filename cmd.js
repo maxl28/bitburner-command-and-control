@@ -3,12 +3,14 @@ import {
 	formatTable,
 	formatBarGraph,
 	formatPipe,
-	formatNodeMap
+	formatNodeMap,
+	formatBatch
 } from 'core/format'
-import { Network, HostMap, Fragments, CC, Tracker, Plan } from 'state/index'
+import { Network, Hosts, Fragments, CC, Tracker, Plan } from 'state/index'
 import { Flags } from 'core/flags'
-import { OWN_SERVER_PREFIX, WORKER_SCRIPTS, MIN_WORKER_RAM, GAME_FRAGMENTS } from 'core/globals'
+import { OWN_SERVER_PREFIX, WORKER_SCRIPTS, MIN_WORKER_RAM, GAME_FRAGMENTS, FARM_DESIRED_VOLUME } from 'core/globals'
 import { graphify, millisToHuman } from 'core/util'
+import { Batch } from 'core/batch'
 
 const ACTIONS = new Flags([
 	['clean', false, ['Wipe state, meaning delete all entries to Electron\'s local storage.'].join('\n')],
@@ -26,11 +28,14 @@ const ACTIONS = new Flags([
 	['contract', false, ['Show information about contract file. Give file- and hostname as parameters.'].join('\n')],
 	['ramlist', false, ['Show scripts files with ram use on given host.'].join('\n')],
 	['traceroute', false, ['Trace a path to a host.'].join('\n')],
+	['reserved', false, ['Show memory pool distribution by task/space.'].join('\n')],
+	['dryrun', false, ['Prepare and print a theoretical batch for a given host'].join('\n')]
 ])
 const ACTIONS_TRACKER = [
 	'scripts',
 	'hacknet'
 ]
+
 
 export function autocomplete(data, args) {
 	if (args.length > 1 && args[0] == "env") return [...(Object.entries((new CC()).debug).map(v => v[0]))]
@@ -41,7 +46,8 @@ export function autocomplete(data, args) {
 	else if (args.length == 1) return [...ACTIONS.keys()]
 }
 
-let hostMap, network, fragments, cc, tracker, plan;
+
+let hosts, network, fragments, cc, tracker, plan;
 let translation = {
 	clean: act_clean,
 	addserv: act_addserv,
@@ -50,7 +56,13 @@ let translation = {
 	backdoors: act_backdoors,
 	info: act_info,
 	memory: act_memory,
+	reserved: act_memory_reservation,
 	plan: act_plan,
+	traceroute: act_traceroute,
+	fragments: act_fragments,
+	list: act_list,
+	dryrun: act_dryrun,
+	tracker: act_tracker,
 }
 
 /** @param {NS} ns **/
@@ -62,7 +74,7 @@ export async function main(ns) {
 		ns.exit()
 	}
 
-	hostMap 		= HostMap.load()
+	hosts 		= Hosts.load()
 	network 		= Network.load()
 	fragments 	= Fragments.load()
 	cc 					= CC.load()
@@ -127,7 +139,7 @@ async function act_inspect(ns) {
 		ns.exit()
 	}
 
-	const sr = hostMap.servers[name]
+	const sr = hosts.servers[name]
 
 	var tPrint = ''
 
@@ -246,8 +258,8 @@ ${tPrint}
 async function act_backdoors(ns) {
 	ns.tprint('Hacked servers without backdoor:')
 
-	hostMap.hosts.forEach((host) => {
-		var sr = hostMap.servers[host]
+	hosts.hosts.forEach((host) => {
+		var sr = hosts.servers[host]
 
 		if (
 			host.indexOf(OWN_SERVER_PREFIX) < 0 &&
@@ -272,11 +284,11 @@ async function act_info(ns) {
 				threadMap = new Map(),
 				jobMap = new Map(),
 				networkRam = 0
-			for (let host of hostMap.hosts) {
+			for (let host of hosts.hosts) {
 
-				if (network.nodes.includes(host)) {
+				if (hosts.owned.includes(host)) {
 					running++
-					hostMap.servers[host].backdoorInstalled && bd++
+					hosts.servers[host].backdoorInstalled && bd++
 					ns.ps(host).forEach((proc) => {
 						if (
 							proc.args.length >= 3 &&
@@ -292,7 +304,7 @@ async function act_info(ns) {
 						if (proc.args.length > 1) cmd += ' ' + proc.args[1]
 
 						totalThreads += proc.threads
-						totalCores += hostMap.servers[host].cpuCores
+						totalCores += hosts.servers[host].cpuCores
 
 						// Add to total RAM
 						var cmdTotalRAM = ramMap.has(cmd) ? ramMap.get(cmd) : 0
@@ -306,7 +318,7 @@ async function act_info(ns) {
 
 						// Add to computing node list
 						var usedNodes = networkMap.has(cmd) ? networkMap.get(cmd) : 0
-						usedNodes += hostMap.servers[host].cpuCores
+						usedNodes += hosts.servers[host].cpuCores
 						networkMap.set(cmd, usedNodes)
 
 						// Add to thread list
@@ -322,17 +334,17 @@ async function act_info(ns) {
 									ns.hackAnalyze(host) *
 									proc.threads *
 									ns.getServerMoneyAvailable(proc.args[1])
-								gain += bounty / (hostMap.servers[proc.args[1]].hackTime / 1000)
+								gain += bounty / (hosts.servers[proc.args[1]].hackTime / 1000)
 								break
 
 							case 'grow':
 								var bounty = ns.growthAnalyzeSecurity(proc.threads)
-								gain += bounty / (hostMap.servers[proc.args[1]].growTime / 1000)
+								gain += bounty / (hosts.servers[proc.args[1]].growTime / 1000)
 								break
 
 							case 'weaken':
 								var bounty = ns.weakenAnalyze(proc.threads)
-								gain += bounty / (hostMap.servers[proc.args[1]].weakenTime / 1000)
+								gain += bounty / (hosts.servers[proc.args[1]].weakenTime / 1000)
 								break
 						}
 						var cmdTotalGain = gainMap.has(cmd) ? gainMap.get(cmd) : 0
@@ -348,9 +360,9 @@ async function act_info(ns) {
 			for (var i = 2; i < network.state.size; i++) {
 				var cmd = Array.from(network.state.keys())[i]
 
-				tPrint += `+ '${cmd}' with ${ns.nFormat(
+				tPrint += `+ '${cmd}' with ${ns.format.number(
 					threadMap.get(cmd),
-					'0a'
+					3
 				)} thread(s) @ ${formatMoney(
 					Math.floor(network.state.get(cmd))
 				)} GB / ${networkMap.has(cmd) ? networkMap.get(cmd) : 0} cores(s)\n`
@@ -386,23 +398,23 @@ async function act_info(ns) {
 					tPrint += `---- Runtime: ${
 						pTime / 60 > 0 ? Math.floor(pTime / 60) + 'min ' : ''
 					}${Math.floor(pTime % 60)}sec\n`
-					tPrint += `---- Volume : ${fullPercent.toFixed(3)}% -> ${ns.nFormat(
+					tPrint += `---- Volume : ${fullPercent.toFixed(3)}% -> \$ ${ns.format.number(
 						ns.getServerMoneyAvailable(target),
-						'$0a'
+						3
 					)}\n`
 					tPrint += `---- Prop   : ${(
 						ns.hackAnalyzeChance(target) * 100
 					).toFixed(3)}% \n`
-					tPrint += `---- Gain   : ${ns.nFormat(
+					tPrint += `---- Gain   : \$ ${ns.format.number(
 						Math.floor(0+gainMap.get(cmd)),
-						'$ 0.000a'
+						3
 					)} / sec \n`
 				}
 			}
 
 			let pPrint = ''
 			for (let [jID, threads] of jobMap) {
-				pPrint += `+ [${jID}] @ ${ns.nFormat(threads, '000a')} thread(s)\n`
+				pPrint += `+ [${jID}] @ ${ns.format.number(threads, 3)} thread(s)\n`
 			}
 
 			let cFlags = cc.flags.get('HackAll') ? ' --HACK-ALL' : ''
@@ -415,16 +427,15 @@ async function act_info(ns) {
 				`
 ---------------------------------------------------------
 Network
-${tPrint}-> 'run cc.js${cFlags}' computing ${ns.nFormat(
-					totalThreads,
-					'0a'
-				)} thread(s) on ${totalCores} core(s) across ${running} node(s) with ${(
+${tPrint}-> 'run cc.js${cFlags}' computing ${ns.format.number(
+					totalThreads, 3)
+				} thread(s) on ${totalCores} core(s) across ${running} node(s) with ${(
 					networkRam /
 					(network.totalRAM / 100)
 				).toFixed(3)}% efficiency.
 
 Economy
-+ Money/sec	: ${ns.nFormat(ns.getScriptIncome(), '$0.000a')}
++ Money/sec	: \$ ${ns.format.number(ns.getScriptIncome(), 3)}
 + EXP/sec	: ${formatMoney(Math.floor(ns.getScriptExpGain()))}
 + Share		: ${ns.getSharePower()}
 
@@ -436,13 +447,13 @@ ${fragments.used.map(root => {
 	// Skip booster frags
 	if ( frag.id >= 100 ) return ''
 
-	return '--- ' + GAME_FRAGMENTS[frag.id] + ' @ ' + ns.nFormat(frag.numCharge, '0.000a')
+	return '--- ' + GAME_FRAGMENTS[frag.id] + ' @ ' + ns.format.number(frag.numCharge, 3)
 }).filter(v => v.length > 0).join('\n')}
 ` +
 				/*
 				
 				Hosts
-				+ Owned		: ${running} / ${hostMap.length}
+				+ Owned		: ${running} / ${hosts.length}
 				+ BD		: ${bd} / ${running - priv}
 				+ RAM		: ${hUsedRAM} / ${hAvailRAM} GB
 				
@@ -459,13 +470,13 @@ ${fragments.used.map(root => {
 }
 async function act_list(ns) {
 	ns.tprint(
-		`Collecting info from ${hostMap.hosts.length} distinct hosts...`
+		`Collecting info from ${hosts.hosts.length} distinct hosts...`
 	)
 
 	var out2 = '-- [Hitlist] --\n'
 
 	var rows = []
-	network.targets.forEach((max, host, map) => {
+	hosts.targets.forEach((max, host, map) => {
 		var avail = Math.floor(ns.getServerMoneyAvailable(host))
 
 		rows.push([
@@ -489,12 +500,12 @@ async function act_list(ns) {
 	out2 += `-- [Network] --\n`
 
 	var dRows = []
-	network.nodes.forEach((host) => {
+	hosts.owned.forEach((host) => {
 		dRows.push([
 			host,
 			ns.getServerUsedRam(host) + ' GB',
 			ns.getServerMaxRam(host) + ' GB',
-			hostMap.servers[host].cpuCores
+			hosts.servers[host].cpuCores
 		])
 	})
 
@@ -504,7 +515,7 @@ async function act_list(ns) {
 }
 async function act_plan(ns) {
 	let taskMap = new Map()
-			for ( let host of network.nodes ) {
+			for ( let host of hosts.owned ) {
 				// Fetch all running workers for this host.
 				ns.ps(host).forEach( proc => {
 					if (
@@ -565,14 +576,14 @@ async function act_memory(ns) {
 			totalOverhang = 0,
 			hostOverhang = new Map()
 			
-	for( let host of network.nodes ) {
-		let free = hostMap.servers[host].maxRam - hostMap.servers[host].ramUsed
+	for( let host of hosts.owned ) {
+		let free = hosts.servers[host].maxRam - hosts.servers[host].ramUsed
 			
 		totalFree += free
-		totalUsed += hostMap.servers[host].ramUsed
+		totalUsed += hosts.servers[host].ramUsed
 
-		if (hostMap.servers[host].ramUsed > 0) {
-			hostUsed.set(host, hostMap.servers[host].ramUsed)
+		if (hosts.servers[host].ramUsed > 0) {
+			hostUsed.set(host, hosts.servers[host].ramUsed)
 		}
 
 		if (free > 0 && free < MIN_WORKER_RAM) {
@@ -584,9 +595,9 @@ async function act_memory(ns) {
 			ns.tprint(`
 -- [Memory] --
 
-Free:       ${totalFree >= 0 ? ns.nFormat(totalFree, '0,000.00')+' GB' : 'NaN'}
-In Use:     ${totalUsed >= 0 ? ns.nFormat(totalUsed, '0,000.00')+' GB' : 'NaN'}
-Overhang:   ${totalOverhang >= 0 ? ns.nFormat(totalOverhang, '0,000.00')+' GB' : 'NaN'} across ${hostOverhang.size} host(s)
+Free:       ${totalFree >= 0 ? ns.format.number(totalFree, 3)+' GB' : 'NaN'}
+In Use:     ${totalUsed >= 0 ? ns.format.number(totalUsed, 3)+' GB' : 'NaN'}
+Overhang:   ${totalOverhang >= 0 ? totalOverhang +' GB' : 'NaN'} across ${hostOverhang.size} host(s)
 			`)
 }
 async function act_memory_reservation(ns, space = 'harvest') {
@@ -602,41 +613,43 @@ async function act_memory_reservation(ns, space = 'harvest') {
 			tEnd 		= relevant[relevant.length-1][1],
 			cMax 		= Math.max(0, ...relevant.map(el => el[3]))
 
+	let lines = new Array(scaleY).fill(new Array(scaleX).fill(' '))
+
+	let transT = val => Math.min(scaleY-1, Math.round((val-tStart) / ((tEnd - tStart) / scaleY)))
+	let transS = val => Math.max(0, Math.round(val / (cMax / scaleX))-1)
+
+	let padX = 0, cX=1, patch = [], wIDs = []
+	for (let i = 0; i < relevant.length; i++) {
+		let y1 = transT(relevant[i][0]),
+				y2 = transT(relevant[i][1]),
+				x1 = padX,
+				x2 = Math.min(scaleX-1, padX+transS(relevant[i][3]));
+
+		lines[y1].splice(x1, x2-x1, ...(new Array(x2-x1).fill(`${cX}`)))
+		lines[y2].splice(x1, x2-x1, ...(new Array(x2-x1).fill(`${cX}`)))
+		patch.push([y1, x1, '+'])
+		patch.push([y2, x2, '+'])
+
+		padX = x2
+		if (padX > 0 && i < (relevant.length-1) && transT(relevant[i+1][0]) > y2) {
+			padX = 0
+			cX = 1
+		} else {
+			cX++
+		}
+	}
+	patch.forEach(el => lines[el[0]].splice(el[1], 1, el[2]))
+
+
 	ns.tprint(`
 --- [Memory > Look-Ahead Cache] ---
 + Space:                 > ${space} <
 + Showing range (H:m:s): > ${millisToHuman(tEnd-tStart)} <
 + Entries:               > ${relevant.length} <
+
+${lines.map(el => el.join('')).reverse().join('\n')}
+${relevant.map((el, i) => i + '	:	' + el[2].split('_')[0]).join('\n')}
 `)
-
-		let lines = new Array(scaleY).fill(new Array(scaleX).fill(' '))
-
-		let transT = val => Math.min(scaleY-1, Math.round((val-tStart) / ((tEnd - tStart) / scaleY)))
-		let transS = val => Math.max(0, Math.round(val / (cMax / scaleX))-1)
-
-		let padX = 0, patch = []
-		for (let i = 0; i < relevant.length; i++) {
-			let y1 = transT(relevant[i][0]),
-					y2 = transT(relevant[i][1]),
-					x1 = padX,
-					x2 = Math.min(scaleX-1, padX+transS(relevant[i][3]))
-
-			padX = x2
-			if (padX > 0 && i < (relevant.length-1) && transT(relevant[i+1][0]) > y2) {
-				padX = 0
-			}
-
-
-			lines[y1].splice(x1, x2-x1, ...(new Array(x2-x1).fill('+')))
-			lines[y2].splice(x1, x2-x1, ...(new Array(x2-x1).fill('+')))
-			for (let i = 0; i < (y2-y1); i++) {
-				patch.push([y1+i, x1, (i==0||i>=(y2-y1-1))?'.':'|'])
-				patch.push([y1+i, x2, (i==0||i>=(y2-y1-1))?'.':'|'])
-			}
-		}
-		patch.forEach(el => lines[el[0]].splice(el[1], 1, el[2]))
-
-		ns.tprint('Graph: \n'+lines.map(el => el.join('')).reverse().join('\n'))
 }
 async function act_traceroute(ns) {
 	if (ns.args.length < 2) {
@@ -652,7 +665,7 @@ async function act_traceroute(ns) {
 		destination = ns.args[2]
 	}
 
-	let path = Array.from(...HostMap.load().path(origin, destination))
+	let path = Array.from(Hosts.load().path(origin, destination))
 
 	path.splice(0, 1)
 
@@ -708,7 +721,7 @@ async function act_hostmap(ns) {
 
 			ns.tprint(`
 -- Host Map --
-${formatNodeMap(graphify(hostMap.neighbours), root)}
+${formatNodeMap(graphify(hosts.neighbours), root)}
 			`)
 }
 async function act_env(ns) {
@@ -795,7 +808,7 @@ async function act_files(ns) {
 	let files = new Map()
 			let exclude = ['js', 'exe']
 
-			for ( let host of hostMap.hosts ) {
+			for ( let host of hosts.hosts ) {
 				for ( let file of ns.ls(host) ) {
 					
 					let found = false
@@ -862,4 +875,20 @@ async function act_ramlist(ns) {
 	-- File List --
 	${formatTable(25, ['Filename', 'Cost (GB)'], costRows)}
 	`)
+}
+
+async function act_dryrun(ns) {
+	if (ns.args.length < 2) {
+		ns.tprint('Missing host argument')
+		ns.exit()
+	}
+	if (!ns.serverExists(ns.args[1])) {
+		ns.tprint('Host '+ns.args[1]+' not found')
+		ns.exit()
+	}
+
+	const batch = new Batch(ns, ns.args[1], Batch.makeData(ns, hosts.servers[ns.args[1]], FARM_DESIRED_VOLUME))
+
+	ns.tprint("\nBATCH FOR: " + ns.args[1] + '\nTasks: ' + batch._data.length + '\nTiming: ' + JSON.stringify(batch.runtime())+'\nLegend:  '+batch._data.map((val,i) => i+':'+val[2]+'  -  ').join('')+'\n\n'+formatBatch(ns, batch))
+	ns.tprint("Expected consumption: " + ns.format.number(batch.consumption(), 3) + ' GB')
 }

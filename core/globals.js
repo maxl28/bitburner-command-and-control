@@ -17,12 +17,13 @@ export const OWN_SERVER_BUY_CORPUS = .75
 
 export const MIN_WORKER_RAM = 1.65
 export const HNET_BUY_CORPUS = .65
-export const FARM_THRESHOLD_HACK_CHANCE = .45
+export const FARM_THRESHOLD_HACK_CHANCE = .65
 export const FARM_MIN_VOLUME = .4
-export const FARM_MAX_VOLUME = .9
-export const FARM_DESIRED_VOLUME = .3
+export const FARM_MAX_VOLUME = 1
+export const FARM_DESIRED_VOLUME = .5
 export const FARM_MIN_TARGETS = 2
 export const FARM_TARGET_PERCENTAGE = .4
+export const FARM_BATCH_STAGGER = 150
 
 export const STOCK_COMISSION_FEE = 100000
 
@@ -38,9 +39,19 @@ export const CC_CYCLE_PAUSE = .075 * 1000
 export const CC_BIG_TICK_COUNT = 300
 export const CC_PLAN_UPDATE_TICK_COUNT = 2
 
-export const SCHEDULE_BUFFER_SIZE = 500
+export const SCHEDULE_BUFFER_SIZE = 5000
 export const CC_NOTIFY_LEVELS = {'success': 0, 'info': 1, 'warning': 2, 'error': 3, 'none': 100}
 
+export const MEM_SPACE_DEFAULT = 'harvest'
+
+export const MEM_SPACE_DICT = {
+	'_size': 4,
+	
+	'daemon': 0,
+	'harvet': 1,
+	'share': 2,
+	'charge': 3
+}
 
 /////////////////////////////
 ///////	 GAME INTEL		///////
@@ -55,6 +66,8 @@ export const SCRIPT_COSTS = {
 	'/worker/hack.js': 1.75,
 	'/worker/grow.js': 1.75,
 	'/worker/weaken.js': 1.75,
+	'/worker/charge.js': 2.0,
+	'/worker/share.js': 4.0,
 	'/worker/daemon_bladeburner.js': 15.6,
 }
 export const GAME_PROGRAMS = [

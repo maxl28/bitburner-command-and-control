@@ -12,14 +12,14 @@ export async function main(ns) {
 
   do {
 
-    for (let node of network.nodes ) {
+    for (let node of hosts.owned ) {
       for ( let script of WORKER_SCRIPTS ) {
         ns.scriptKill(script, node)
       }
     }
 
-    await asyncRun(ns, 'task/scan.js')
-    await asyncRun(ns, 'task/scan_analyze.js')
+    await asyncRun(ns, 'task/update_hosts.js')
+    await asyncRun(ns, 'task/update_network.js')
 
     network = Network.load()
   }  while ( network.taken.size > 0 )

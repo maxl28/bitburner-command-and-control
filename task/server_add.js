@@ -10,18 +10,18 @@ export async function main(ns) {
 		if (res.length > 0) {
 			!cc.flags.get('Silent') && cc.notify(ns,
 				'success',
-				`Purchasing server '${res}' with ${ram} for ${ns.nFormat(
-					ns.getPurchasedServerCost(ram),
-					'$0.000a'
+				`Purchasing server '${res}' with ${ram} for ${ns.format.number(
+					ns.cloud.getServerCost(ram),
+					3
 				)}`,
 				4000
 			)
 		} else {
 			!cc.flags.get('Silent') && cc.notify(ns,
 				'error',
-				`Failed to purchase server, not enought money: ${ns.nFormat(
-					ns.getPurchasedServerCost(ram),
-					'$0.000a'
+				`Failed to purchase server, not enought money: \$ ${ns.format.number(
+					ns.cloud.getServerCost(ram),
+					3
 				)}`,
 				4000
 			)
